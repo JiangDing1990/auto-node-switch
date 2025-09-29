@@ -1,0 +1,117 @@
+{
+	"name": "auto-node-switch",
+	"version": "0.0.1",
+	"description": "🚀 Node.js 智能版本管理工具 - 为不同项目自动切换对应的 Node.js 版本",
+	"license": "MIT",
+	"author": {
+		"name": "jiangding1990",
+		"email": "jiangdingjd@gmail.com"
+	},
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/jiangding1990/auto-node-switch.git"
+	},
+	"homepage": "https://github.com/jiangding1990/auto-node-switch#readme",
+	"bugs": {
+		"url": "https://github.com/jiangding1990/auto-node-switch/issues"
+	},
+	"bin": {
+		"auto-node-switch": "dist/cli.js"
+	},
+	"type": "module",
+	"engines": {
+		"node": ">=16"
+	},
+	"os": [
+		"darwin",
+		"linux",
+		"win32"
+	],
+	"keywords": [
+		"nodejs",
+		"node",
+		"version-management",
+		"version-switcher",
+		"nvm",
+		"fnm",
+		"cli",
+		"automation",
+		"development-tools",
+		"developer-experience",
+		"workflow",
+		"productivity",
+		"cross-platform"
+	],
+	"scripts": {
+		"build": "tsc",
+		"dev": "tsc --watch",
+		"test": "npm run build",
+		"lint": "prettier --check . && xo",
+		"lint:fix": "prettier --write . && xo --fix",
+		"prepare": "npm run build",
+		"prepublishOnly": "npm run build && npm test",
+		"start": "node dist/cli.js",
+		"prepack": "npm run build"
+	},
+	"files": [
+		"dist",
+		"README.md"
+	],
+	"dependencies": {
+		"figures": "^5.0.0",
+		"ink": "^4.1.0",
+		"ink-select-input": "^5.0.0",
+		"ink-spinner": "^5.0.0",
+		"ink-text-input": "^5.0.1",
+		"meow": "^11.0.0",
+		"react": "^18.2.0",
+		"semver": "^7.7.2"
+	},
+	"devDependencies": {
+		"@sindresorhus/tsconfig": "^3.0.1",
+		"@types/react": "^18.0.32",
+		"@vdemedes/prettier-config": "^2.0.1",
+		"ava": "^5.2.0",
+		"chalk": "^5.2.0",
+		"eslint-config-xo-react": "^0.27.0",
+		"eslint-plugin-react": "^7.32.2",
+		"eslint-plugin-react-hooks": "^4.6.0",
+		"ink-testing-library": "^3.0.0",
+		"prettier": "^2.8.7",
+		"ts-node": "^10.9.1",
+		"typescript": "^5.0.3",
+		"xo": "^0.53.1"
+	},
+	"ava": {
+		"extensions": {
+			"ts": "module",
+			"tsx": "module"
+		},
+		"nodeArguments": [
+			"--loader=ts-node/esm"
+		]
+	},
+	"xo": {
+		"extends": "xo-react",
+		"prettier": true,
+		"ignores": [],
+		"rules": {
+			"react/prop-types": "off",
+			"unicorn/expiring-todo-comments": "off",
+			"@typescript-eslint/consistent-type-definitions": "off",
+			"@typescript-eslint/no-unsafe-assignment": "off",
+			"@typescript-eslint/no-implicit-any-catch": "off",
+			"@typescript-eslint/no-floating-promises": "off",
+			"unicorn/no-array-for-each": "off",
+			"@typescript-eslint/no-confusing-void-expression": "off",
+			"react/prefer-read-only-props": "off",
+			"@typescript-eslint/restrict-template-expressions": "off",
+			"@typescript-eslint/naming-convention": "off",
+			"unicorn/no-static-only-class": "off",
+			"@typescript-eslint/no-extraneous-class": "off",
+			"capitalized-comments": "off",
+			"unicorn/prevent-abbreviations": "off"
+		}
+	},
+	"prettier": "@vdemedes/prettier-config"
+}

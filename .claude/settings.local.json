@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "WebFetch(domain:github.com)",
+      "Bash(npm install:*)",
+      "Bash(npm run build:*)",
+      "Bash(node dist/cli.js --help)",
+      "Bash(node:*)",
+      "Bash(npm test)",
+      "Bash(npx prettier:*)",
+      "Bash(tty)",
+      "Bash(npm link)",
+      "Bash(npm run lint)",
+      "Bash(npm run lint:*)",
+      "Bash(chmod:*)",
+      "Bash(npm run:*)",
+      "Bash(npm pack:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
