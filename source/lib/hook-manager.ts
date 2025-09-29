@@ -66,7 +66,15 @@ export class HookManager {
 
 			if (hook) {
 				// 添加 hook
-				content += '\n' + hook;
+				// 确保前面有换行符但避免多余换行
+			if (content && !content.endsWith('\n')) {
+				content += '\n';
+			}
+			content += hook;
+		// 确保文件末尾有换行符
+		if (!content.endsWith('\n')) {
+			content += '\n';
+		}
 				fs.writeFileSync(shellRcPath, content, 'utf8');
 				console.log(`✅ 已成功配置 ${path.basename(shellRcPath)}`);
 			}
@@ -129,7 +137,7 @@ export class HookManager {
 			nvmPaths.find(p => fs.existsSync(p)) ?? path.join(HOME, '.nvm/nvm.sh');
 
 		if (manager === 'nvm') {
-			return `${HOOK_MARKER}
+			return `\n${HOOK_MARKER}
 npm() {
   local WORKDIRS='${escapedDirsJson}'
   local TARGET_VERSION=""
@@ -145,51 +153,16 @@ npm() {
     local CURRENT_DIR="$(pwd)"
     local WORKDIR_INFO=""
     
-    # 优先使用Python解析JSON（更可靠）
-    if command -v python3 >/dev/null 2>&1; then
-      WORKDIR_INFO=$(echo "$WORKDIRS" | python3 -c "
-import json, sys, os
-try:
-    workdirs = json.load(sys.stdin)
-    cwd = os.getcwd()
-    best_match = None
-    best_length = -1
+    # 使用更简单可靠的JSON解析方法
+    local CURRENT_DIR="$(pwd)"
+    # 提取目录和版本，使用更安全的方法
+    local work_dir=$(echo "$WORKDIRS" | sed 's/.*"dir":"\\([^"]*\\)".*/\\1/')
+    local work_version=$(echo "$WORKDIRS" | sed 's/.*"version":"\\([^"]*\\)".*/\\1/')
     
-    for w in workdirs:
-        w_dir = w['dir']
-        if cwd == w_dir or cwd.startswith(w_dir + '/'):
-            if len(w_dir) > best_length:
-                best_match = w
-                best_length = len(w_dir)
-    
-    if best_match:
-        dir_name = os.path.basename(best_match['dir'])
-        print(best_match['version'] + '|' + dir_name)
-except:
-    pass
-" 2>/dev/null)
-    elif command -v python >/dev/null 2>&1; then
-      WORKDIR_INFO=$(echo "$WORKDIRS" | python -c "
-import json, sys, os
-try:
-    workdirs = json.load(sys.stdin)
-    cwd = os.getcwd()
-    best_match = None
-    best_length = -1
-    
-    for w in workdirs:
-        w_dir = w['dir']
-        if cwd == w_dir or cwd.startswith(w_dir + '/'):
-            if len(w_dir) > best_length:
-                best_match = w
-                best_length = len(w_dir)
-    
-    if best_match:
-        dir_name = os.path.basename(best_match['dir'])
-        print(best_match['version'] + '|' + dir_name)
-except:
-    pass
-" 2>/dev/null)
+    # 检查当前目录是否匹配工作目录
+    if [ "$CURRENT_DIR" = "$work_dir" ] || echo "$CURRENT_DIR" | grep -q "^$work_dir/"; then
+      WORKDIR_INFO="$work_version|$(basename "$work_dir")"
+    fi
     
     if [ -n "$WORKDIR_INFO" ]; then
       TARGET_VERSION="\${WORKDIR_INFO%|*}"
@@ -222,12 +195,11 @@ except:
   # 正常完成时恢复版本（通过EXIT trap自动处理）
   return $exit_code
 }
-${HOOK_END_MARKER}
-`;
+${HOOK_END_MARKER}`;
 		}
 
 		if (manager === 'n') {
-			return `${HOOK_MARKER}
+			return `\n${HOOK_MARKER}
 npm() {
   local WORKDIRS='${escapedDirsJson}'
   local TARGET_VERSION=""
@@ -243,51 +215,16 @@ npm() {
     local CURRENT_DIR="$(pwd)"
     local WORKDIR_INFO=""
     
-    # 优先使用Python解析JSON（更可靠）
-    if command -v python3 >/dev/null 2>&1; then
-      WORKDIR_INFO=$(echo "$WORKDIRS" | python3 -c "
-import json, sys, os
-try:
-    workdirs = json.load(sys.stdin)
-    cwd = os.getcwd()
-    best_match = None
-    best_length = -1
+    # 使用更简单可靠的JSON解析方法
+    local CURRENT_DIR="$(pwd)"
+    # 提取目录和版本，使用更安全的方法
+    local work_dir=$(echo "$WORKDIRS" | sed 's/.*"dir":"\\([^"]*\\)".*/\\1/')
+    local work_version=$(echo "$WORKDIRS" | sed 's/.*"version":"\\([^"]*\\)".*/\\1/')
     
-    for w in workdirs:
-        w_dir = w['dir']
-        if cwd == w_dir or cwd.startswith(w_dir + '/'):
-            if len(w_dir) > best_length:
-                best_match = w
-                best_length = len(w_dir)
-    
-    if best_match:
-        dir_name = os.path.basename(best_match['dir'])
-        print(best_match['version'] + '|' + dir_name)
-except:
-    pass
-" 2>/dev/null)
-    elif command -v python >/dev/null 2>&1; then
-      WORKDIR_INFO=$(echo "$WORKDIRS" | python -c "
-import json, sys, os
-try:
-    workdirs = json.load(sys.stdin)
-    cwd = os.getcwd()
-    best_match = None
-    best_length = -1
-    
-    for w in workdirs:
-        w_dir = w['dir']
-        if cwd == w_dir or cwd.startswith(w_dir + '/'):
-            if len(w_dir) > best_length:
-                best_match = w
-                best_length = len(w_dir)
-    
-    if best_match:
-        dir_name = os.path.basename(best_match['dir'])
-        print(best_match['version'] + '|' + dir_name)
-except:
-    pass
-" 2>/dev/null)
+    # 检查当前目录是否匹配工作目录
+    if [ "$CURRENT_DIR" = "$work_dir" ] || echo "$CURRENT_DIR" | grep -q "^$work_dir/"; then
+      WORKDIR_INFO="$work_version|$(basename "$work_dir")"
+    fi
     
     if [ -n "$WORKDIR_INFO" ]; then
       TARGET_VERSION="\${WORKDIR_INFO%|*}"
@@ -319,8 +256,7 @@ except:
   # 正常完成时恢复版本（通过EXIT trap自动处理）
   return $exit_code
 }
-${HOOK_END_MARKER}
-`;
+${HOOK_END_MARKER}`;
 		}
 
 		return '';
@@ -352,7 +288,7 @@ ${HOOK_END_MARKER}
 			nvmPaths.find(p => fs.existsSync(p)) ?? path.join(HOME, '.nvm/nvm.sh');
 
 		if (manager === 'nvm') {
-			return `${HOOK_MARKER}
+			return `\n${HOOK_MARKER}
 function npm
     set WORKDIRS '${escapedDirsJson}'
     set TARGET_VERSION ""
@@ -452,12 +388,11 @@ except:
     
     return $exit_code
 end
-${HOOK_END_MARKER}
-`;
+${HOOK_END_MARKER}`;
 		}
 
 		if (manager === 'n') {
-			return `${HOOK_MARKER}
+			return `\n${HOOK_MARKER}
 function npm
     set WORKDIRS '${escapedDirsJson}'
     set TARGET_VERSION ""
@@ -558,8 +493,7 @@ except:
     
     return $exit_code
 end
-${HOOK_END_MARKER}
-`;
+${HOOK_END_MARKER}`;
 		}
 
 		return '';
@@ -587,7 +521,7 @@ ${HOOK_END_MARKER}
 			.replace(/\r/g, '\\r'); // 回车符转义
 
 		if (manager === 'nvm-windows') {
-			return `${HOOK_MARKER}
+			return `\n${HOOK_MARKER}
 function npm {
     $WORKDIRS = '${escapedDirsJson}'
     $TARGET_VERSION = ""
@@ -656,12 +590,11 @@ function npm {
         & npm.cmd @args
     }
 }
-${HOOK_END_MARKER}
-`;
+${HOOK_END_MARKER}`;
 		}
 
 		if (manager === 'fnm') {
-			return `${HOOK_MARKER}
+			return `\n${HOOK_MARKER}
 function npm {
     $WORKDIRS = '${escapedDirsJson}'
     $TARGET_VERSION = ""
@@ -736,12 +669,11 @@ function npm {
         exit $exitCode
     }
 }
-${HOOK_END_MARKER}
-`;
+${HOOK_END_MARKER}`;
 		}
 
 		if (manager === 'nvs') {
-			return `${HOOK_MARKER}
+			return `\n${HOOK_MARKER}
 function npm {
     $WORKDIRS = '${escapedDirsJson}'
     $TARGET_VERSION = ""
@@ -816,8 +748,7 @@ function npm {
         exit $exitCode
     }
 }
-${HOOK_END_MARKER}
-`;
+${HOOK_END_MARKER}`;
 		}
 
 		return '';
