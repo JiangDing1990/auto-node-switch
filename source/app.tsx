@@ -1,5 +1,6 @@
 import React, {useState, useEffect} from 'react';
-import {Box, Text, Newline, useInput} from 'ink';
+import {execSync} from 'node:child_process';
+import {Box, Text, useInput} from 'ink';
 import SelectInput from 'ink-select-input';
 import TextInput from 'ink-text-input';
 import Spinner from 'ink-spinner';
@@ -12,6 +13,7 @@ import {
 } from './lib/version-detector.js';
 import {HookManager} from './lib/hook-manager.js';
 import {Security, ValidationError, SecurityError} from './lib/security.js';
+import {getColoredBanner} from './lib/ascii-art.js';
 
 type AppMode =
 	| 'loading'
@@ -97,9 +99,10 @@ export default function App(_props: AppProps = {}) {
 	if (appMode === 'loading') {
 		return (
 			<Box flexDirection="column">
-				<Box>
+				<Text color="cyan">{getColoredBanner('mini')}</Text>
+				<Box marginTop={1}>
 					<Spinner type="dots" />
-					<Text>♻️ 初始化环境检测中...</Text>
+					<Text color="yellow"> 🔍 正在检测运行环境...</Text>
 				</Box>
 			</Box>
 		);
@@ -113,7 +116,11 @@ export default function App(_props: AppProps = {}) {
 						<Text color="red">{error}</Text>
 					</Box>
 				)}
-				<Text color="green">👋感谢使用 Node.js 智能版本管理工具！</Text>
+				{/* 使用适合终端的紧凑横幅 */}
+				<Text color="cyan">{getColoredBanner('mini')}</Text>
+				<Box marginTop={1}>
+					<Text color="green">🙏 感谢使用 auto-node-switch，下次再见! 👋</Text>
+				</Box>
 			</Box>
 		);
 	}
@@ -241,10 +248,11 @@ function InitialSetup({
 
 	return (
 		<Box flexDirection="column">
-			{/* 标题 */}
-			<Box marginBottom={1}>
-				<Text bold color="cyan">
-					🚀 Node.js 智能版本管理工具 - 初始配置
+			{/* ASCII 艺术字横幅 */}
+			<Text color="cyan">{getColoredBanner('mini')}</Text>
+			<Box marginBottom={1} marginTop={1}>
+				<Text bold color="yellow">
+					🚀 初始配置向导
 				</Text>
 			</Box>
 
@@ -345,12 +353,8 @@ function MainMenu({
 
 	return (
 		<Box flexDirection="column">
-			{/* 标题 */}
-			<Box marginBottom={1}>
-				<Text bold color="cyan">
-					🛠️ Node.js 智能版本管理工具
-				</Text>
-			</Box>
+			{/* ASCII 艺术字横幅 */}
+			<Text color="cyan">{getColoredBanner('stylish')}</Text>
 
 			{/* 当前配置状态 */}
 			<Box flexDirection="column" marginBottom={2}>
@@ -546,16 +550,24 @@ function ProjectList({
 					{config.workdirs.map((workdir, index) => (
 						<Box key={index} marginBottom={1}>
 							<Text>
-								{figures.pointer} {workdir.dir}
+								{figures.pointer} 📂 {workdir.dir}
 							</Text>
-							<Newline />
-							<Text color="green"> → Node {workdir.version}</Text>
+							<Text color="green">   🏷 Node.js {workdir.version}</Text>
+							<Text color="gray">   📝 版本文件: {(() => {
+								if (config.manager === 'n') return '.node-version';
+								if (config.manager === 'nvm-windows' || config.manager === 'nvs' || config.manager === 'fnm') return '.nvmrc';
+								return '.nvmrc'; // 默认
+							})()}</Text>
 						</Box>
 					))}
+					<Box marginTop={1}>
+						<Text color="cyan">💡 共配置了 {config.workdirs.length} 个项目</Text>
+					</Box>
 				</Box>
 			) : (
 				<Box marginBottom={2}>
-					<Text color="gray">🗒️ 暂无项目配置～</Text>
+					<Text color="gray">🗒️ 暂无项目配置</Text>
+					<Text color="gray">💡 请选择 "快速配置" 来添加第一个项目</Text>
 				</Box>
 			)}
 
@@ -644,8 +656,16 @@ function AddProject({
 		return (
 			<Box flexDirection="column">
 				<Text color="green">✅ 项目配置添加成功！</Text>
-				<Text>📂 路径: {projectDir}</Text>
-				<Text>🏷 版本: Node {projectVersion}</Text>
+				<Text>📂 项目路径: {projectDir}</Text>
+				<Text>🏷 Node.js 版本: {projectVersion}</Text>
+				<Text>📝 版本文件: {(() => {
+					if (config.manager === 'n') return '.node-version';
+					if (config.manager === 'nvm-windows' || config.manager === 'nvs' || config.manager === 'fnm') return '.nvmrc';
+					return '.nvmrc'; // 默认
+				})()}</Text>
+				<Box marginTop={1}>
+					<Text color="cyan">💡 进入该目录时将自动切换到 Node {projectVersion}</Text>
+				</Box>
 				<Box marginTop={1}>
 					<Text color="yellow">⌨️ 按任意键返回... (3秒后自动返回)</Text>
 				</Box>
@@ -727,24 +747,25 @@ function DeleteProject({
 	onBack: () => void;
 }) {
 	const hasNoConfig = !config.workdirs || config.workdirs.length === 0;
+	const [deletedProject, setDeletedProject] = useState<string>('');
 
 	// 处理键盘输入 - 必须在条件语句外面
 	useInput((_input, key) => {
-		if (hasNoConfig && (key.return || key.escape)) {
+		if ((hasNoConfig || deletedProject) && (key.return || key.escape)) {
 			onBack();
 		}
 	});
 
 	// 3秒后自动返回 - 必须在条件语句外面
 	useEffect(() => {
-		if (hasNoConfig) {
+		if (hasNoConfig || deletedProject) {
 			const timer = setTimeout(() => {
 				onBack();
 			}, 3000);
 			return () => clearTimeout(timer);
 		}
 		return () => {};
-	}, [hasNoConfig, onBack]);
+	}, [hasNoConfig, deletedProject, onBack]);
 
 	if (hasNoConfig) {
 		return (
@@ -752,6 +773,19 @@ function DeleteProject({
 				<Text color="yellow">⚠️ 暂无项目配置可以删除</Text>
 				<Box marginTop={1}>
 					<Text color="gray">⌨️ 按任意键返回... (3秒后自动返回)</Text>
+				</Box>
+			</Box>
+		);
+	}
+
+	// 显示删除成功提示
+	if (deletedProject) {
+		return (
+			<Box flexDirection="column">
+				<Text color="green">✅ 项目配置删除成功！</Text>
+				<Text>📂 已删除: {deletedProject}</Text>
+				<Box marginTop={1}>
+					<Text color="yellow">⌨️ 按任意键返回... (3秒后自动返回)</Text>
 				</Box>
 			</Box>
 		);
@@ -771,10 +805,16 @@ function DeleteProject({
 			return;
 		}
 
+		// 获取要删除的项目路径
+		const projectToDelete = config.workdirs[item.value as number];
+		const projectName = projectToDelete?.dir || '';
+		
 		const newConfig = {...config};
 		newConfig.workdirs = newConfig.workdirs.filter((_, i) => i !== item.value);
 		onConfigChange(newConfig);
-		onBack();
+		
+		// 设置删除成功状态，显示提示信息
+		setDeletedProject(projectName);
 	};
 
 	return (
@@ -841,9 +881,28 @@ function HookOperationStatus({
 						}
 					});
 
+					// 自动执行source命令刷新Shell配置
+					let sourcedCount = 0;
+					shellRcFiles.forEach(rcFile => {
+						try {
+							execSync(`source ${rcFile}`, { 
+								shell: process.env['SHELL'] || '/bin/bash',
+								stdio: 'pipe'
+							});
+							sourcedCount++;
+						} catch (error) {
+							// 静默失败，在结果消息中会提示用户手动执行
+						}
+					});
+
+					const baseMessage = `🔄✅ 已重新生成 ${processedCount} 个Hook配置`;
+					const sourceMessage = sourcedCount > 0 ? 
+						`\n🎉 配置已自动生效！` : 
+						`\n⚠️ 请手动刷新Shell配置`;
+
 					setResult({
 						success: true,
-						message: `🔄✅ 已重新生成 ${processedCount} 个Hook配置`,
+						message: baseMessage + sourceMessage,
 					});
 				} else if (type === 'clean') {
 					shellRcFiles.forEach(rcFile => {
@@ -909,9 +968,22 @@ function HookOperationStatus({
 				{result.success ? '✅' : '❌'} {result.message}
 			</Text>
 			{result.success && (
-				<Box marginTop={1}>
-					<Text color="yellow">⌨️ 按任意键返回... (3秒后自动返回)</Text>
-				</Box>
+				<>
+					{type === 'regenerate' && result.message?.includes('请手动刷新') && (
+						<Box marginTop={1}>
+							<Text color="cyan">💡 请运行以下命令使配置立即生效：</Text>
+							<Text color="gray">  source ~/.{config.shell}rc</Text>
+						</Box>
+					)}
+					{type === 'clean' && (
+						<Box marginTop={1}>
+							<Text color="cyan">💡 请重新打开终端使更改生效</Text>
+						</Box>
+					)}
+					<Box marginTop={1}>
+						<Text color="yellow">⌨️ 按任意键返回... (3秒后自动返回)</Text>
+					</Box>
+				</>
 			)}
 		</Box>
 	);

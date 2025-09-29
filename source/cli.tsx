@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import path from 'node:path';
 import fs from 'node:fs';
+import {execSync} from 'node:child_process';
 import React from 'react';
 import {render} from 'ink';
 import meow from 'meow';
@@ -9,10 +10,12 @@ import {configCache, ConfigPaths} from './lib/config.js';
 import {Security, ValidationError, SecurityError} from './lib/security.js';
 import {HookManager} from './lib/hook-manager.js';
 import {getShellConfigFiles} from './lib/version-detector.js';
+import {getColoredBanner} from './lib/ascii-art.js';
 
 const cli = meow(
-	`
-🔧 Node.js 智能版本管理工具 - 命令行接口
+	`${getColoredBanner('mini')}
+
+📋 命令行接口
 
 用法:
   $ auto-node-switch [命令] [参数]
@@ -139,8 +142,18 @@ async function handleAddCommand(
 		// 创建版本文件
 		try {
 			fs.mkdirSync(validatedPath, {recursive: true});
-			const versionFileName =
-				config.manager === 'n' ? '.node-version' : '.nvmrc';
+			// 根据版本管理器选择合适的版本文件名
+			let versionFileName = '.nvmrc'; // 默认
+			if (config.manager === 'n') {
+				versionFileName = '.node-version';
+			} else if (config.manager === 'nvm-windows' || config.manager === 'nvs') {
+				// Windows 版本管理器通常兼容 .nvmrc
+				versionFileName = '.nvmrc';
+			} else if (config.manager === 'fnm') {
+				// fnm 既支持 .nvmrc 也支持 .node-version，优先 .nvmrc
+				versionFileName = '.nvmrc';
+			}
+			
 			fs.writeFileSync(
 				path.join(validatedPath, versionFileName),
 				validatedVersion,
@@ -200,6 +213,8 @@ async function handleRemoveCommand(projectPath: string): Promise<void> {
 function handleListCommand(): void {
 	const config = configCache.getConfig();
 
+	console.log('\n' + getColoredBanner('mini'));
+	
 	if (!config.workdirs || config.workdirs.length === 0) {
 		console.log('ℹ️ 暂无项目配置');
 		return;
@@ -216,6 +231,7 @@ function handleListCommand(): void {
 }
 
 function handleInfoCommand(): void {
+	console.log('\n' + getColoredBanner('mini'));
 	console.log('📋 配置文件信息：');
 	console.log(`\n📂 配置路径：`);
 	console.log(`   当前使用: ${ConfigPaths.getActiveConfigFile()}`);
@@ -277,10 +293,51 @@ async function handleRegenerateCommand(): Promise<void> {
 
 	if (generatedCount > 0) {
 		console.log(`✅ 已重新生成 ${generatedCount} 个Hook配置`);
-		console.log('\n💡 执行以下命令使配置立即生效：');
+		
+		// 自动执行source命令刷新Shell配置
+		console.log('\n🔄 正在自动刷新Shell配置...');
+		let sourcedCount = 0;
+		
 		shellRcFiles.forEach(rcFile => {
-			console.log(`  source ${rcFile}`);
+			try {
+				// 检查文件类型，为不同的shell配置文件使用不同的刷新策略
+				const isPowerShell = rcFile.endsWith('.ps1');
+				const isFishShell = rcFile.includes('config.fish');
+				
+				if (isPowerShell) {
+					// PowerShell配置文件需要重新加载配置文件
+					console.log(`⚠️ PowerShell配置已更新，请重启PowerShell或手动执行:`);
+					console.log(`  . ${rcFile}`);
+					return; // PowerShell 不支持在子进程中source
+				} else if (isFishShell) {
+					// Fish shell 使用不同的source命令
+					execSync(`fish -c "source ${rcFile}"`, { 
+						stdio: 'pipe'
+					});
+				} else {
+					// Bash/Zsh使用传统的source命令
+					execSync(`bash -c "source ${rcFile}"`, { 
+						stdio: 'pipe'
+					});
+				}
+				
+				sourcedCount++;
+				console.log(`✅ 已刷新 ${path.basename(rcFile)}`);
+			} catch (error) {
+				console.warn(`⚠️ 自动刷新 ${path.basename(rcFile)} 失败，请手动执行:`);
+				if (rcFile.endsWith('.ps1')) {
+					console.warn(`  . ${rcFile}`);
+				} else if (rcFile.includes('config.fish')) {
+					console.warn(`  source ${rcFile}`);
+				} else {
+					console.warn(`  source ${rcFile}`);
+				}
+			}
 		});
+		
+		if (sourcedCount > 0) {
+			console.log(`\n🎉 配置已自动生效！现在可以在配置的项目目录中使用npm命令了`);
+		}
 	}
 }
 

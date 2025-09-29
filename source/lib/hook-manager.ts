@@ -8,61 +8,49 @@ const HOME = os.homedir();
 
 const HOOK_MARKER = '# Node.js 工作目录环境切换';
 const HOOK_END_MARKER = '# Node.js 工作目录环境切换 END';
-const POWERSHELL_HOOK_MARKER = '# Node.js 工作目录环境切换';
-const POWERSHELL_HOOK_END_MARKER = '# Node.js 工作目录环境切换 END';
 
 /**
- * Hook 管理类
+ * Hook 管理类 - 与 node-auto-switch.js 中的实现保持一致
  */
 export class HookManager {
 	/**
-	 * 生成版本检测的 JavaScript 代码（用于嵌入 shell hook）
+	 * 生成可靠的 Bash Hook（基于 node-auto-switch.js 的最新实现）
 	 */
-	private static generateVersionDetectionJS(manager: string): string {
-		const isForN = manager === 'n';
-		const versionFiles = isForN
-			? "'.node-version', '.nvmrc'"
-			: "'.nvmrc', '.node-version'";
-		const sourceFileDesc = isForN
-			? '".node-version或.nvmrc"'
-			: '".nvmrc或.node-version"';
+	private static generateReliableBashHook(manager: string, workdirs: WorkdirConfig[]): string {
+		// 为了安全起见，对工作目录进行额外验证
+		const validatedWorkdirs = workdirs.map(w => ({
+			dir: Security.validatePath(w.dir),
+			version: Security.validateVersion(w.version)
+		}));
+		
+		const dirsJson = JSON.stringify(validatedWorkdirs);
+		const escapedDirsJson = Security.escapeShellString(dirsJson);
 
-		return `
-      const fs = require('fs');
-      const path = require('path');
-      const workdirs = JSON.parse(fs.readFileSync(0, 'utf8'));
+		// 检测 nvm 路径
+		const nvmPaths = [
+			path.join(HOME, '.nvm/nvm.sh'),
+			'/usr/local/share/nvm/nvm.sh',
+			'/opt/homebrew/share/nvm/nvm.sh',
+		];
+		const nvmPath = nvmPaths.find(p => fs.existsSync(p)) || path.join(HOME, '.nvm/nvm.sh');
+
+		if (manager === 'nvm') {
+			return `${HOOK_MARKER}
+npm() {
+  local WORKDIRS='${escapedDirsJson}'
+  local TARGET_VERSION=""
+  local PREVIOUS_VERSION=""
+
+  # 获取当前 Node 版本
+  if command -v node >/dev/null 2>&1; then
+    PREVIOUS_VERSION="$(node -v 2>/dev/null | sed 's/^v//')"
+  fi
+
+  # 检查是否在工作目录中
+  if [ -n "$WORKDIRS" ]; then
+    local WORKDIR_INFO=$(echo "$WORKDIRS" | node -e "
+      const workdirs = JSON.parse(require('fs').readFileSync(0, 'utf8'));
       const cwd = process.cwd();
-      
-      // 版本文件读取函数
-      function readVersionFile(projectDir) {
-        const versionFiles = [${versionFiles}];
-        
-        for (const fileName of versionFiles) {
-          const filePath = path.join(projectDir, fileName);
-          try {
-            if (fs.existsSync(filePath)) {
-              const content = fs.readFileSync(filePath, 'utf8').trim();
-              if (content) return content.replace(/^v/, '');
-            }
-          } catch (e) { /* ignore */ }
-        }
-        
-        // 检查 package.json 的 engines.node
-        try {
-          const pkgPath = path.join(projectDir, 'package.json');
-          if (fs.existsSync(pkgPath)) {
-            const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
-            const nodeVersion = pkg.engines && pkg.engines.node;
-            if (nodeVersion) {
-              const match = nodeVersion.match(/(\\\\d+\\\\.\\\\d+\\\\.\\\\d+|\\\\d+\\\\.\\\\d+|\\\\d+)/);
-              return match ? match[1] : null;
-            }
-          }
-        } catch (e) { /* ignore */ }
-        return null;
-      }
-      
-      // 1. 优先查找脚本配置的工作目录
       let bestMatch = null;
       let bestLength = -1;
       
@@ -76,83 +64,23 @@ export class HookManager {
       }
       
       if (bestMatch) {
-        const dirName = path.basename(bestMatch.dir);
-        console.log(\\\`\\\${bestMatch.version}|config|\\\${dirName}\\\`);
-        return;
+        const dirName = require('path').basename(bestMatch.dir);
+        console.log(\`\${bestMatch.version}|\${dirName}\`);
       }
-      
-      // 2. 如果没有脚本配置，尝试读取版本文件
-      const fileVersion = readVersionFile(cwd);
-      if (fileVersion) {
-        const dirName = path.basename(cwd);
-        const sourceFile = ${sourceFileDesc};
-        console.log(\\\`\\\${fileVersion}|file|\\\${dirName}|\\\${sourceFile}\\\`);
-        return;
-      }
-  `
-			.replace(/\n\s*/g, ' ')
-			.trim();
-	}
-
-	/**
-	 * 为 Bash/Zsh 生成 Hook
-	 */
-	private static generateBashHook(
-		manager: string,
-		workdirs: WorkdirConfig[],
-	): string {
-		const dirsJson = JSON.stringify(workdirs);
-		const escapedDirsJson = Security.escapeShellString(dirsJson);
-
-		// 生成版本检测的 JavaScript 代码
-		const versionDetectionJS = this.generateVersionDetectionJS(manager);
-
-		let nvmPath = '';
-		if (manager === 'nvm') {
-			const nvmPaths = [
-				path.join(HOME, '.nvm/nvm.sh'),
-				'/usr/local/share/nvm/nvm.sh',
-				'/opt/homebrew/share/nvm/nvm.sh',
-			];
-			nvmPath =
-				nvmPaths.find(p => fs.existsSync(p)) || path.join(HOME, '.nvm/nvm.sh');
-		}
-
-		if (manager === 'nvm') {
-			return `${HOOK_MARKER}
-npm() {
-  local WORKDIRS='${escapedDirsJson}'
-  local TARGET_VERSION=""
-  local PREVIOUS_VERSION=""
-
-  # 获取当前 Node 版本
-  if command -v node >/dev/null 2>&1; then
-    PREVIOUS_VERSION="$(node -v 2>/dev/null | sed 's/^v//')"
-  fi
-
-  # 检查是否在工作目录中
-  if [ -n "$WORKDIRS" ]; then
-    local WORKDIR_INFO=$(echo "$WORKDIRS" | node -e '${versionDetectionJS}' 2>/dev/null)
+    " 2>/dev/null)
     
     if [ -n "$WORKDIR_INFO" ]; then
-      TARGET_VERSION="\${WORKDIR_INFO%%|*}"
-      local VERSION_SOURCE="\$(echo "$WORKDIR_INFO" | cut -d'|' -f2)"
-      local WORKDIR_NAME="\$(echo "$WORKDIR_INFO" | cut -d'|' -f3)"
-      local SOURCE_FILE="\$(echo "$WORKDIR_INFO" | cut -d'|' -f4)"
-      
-      if [ "$VERSION_SOURCE" = "config" ]; then
-        echo "📁 检测到配置项目: \$WORKDIR_NAME (Node \$TARGET_VERSION)"
-      else
-        echo "📁 检测到项目版本文件: \$WORKDIR_NAME (Node \$TARGET_VERSION from \$SOURCE_FILE)"
-      fi
+      TARGET_VERSION="\${WORKDIR_INFO%|*}"
+      local WORKDIR_NAME="\${WORKDIR_INFO#*|}"
+      echo "📁 检测到工作目录: $WORKDIR_NAME"
     fi
   fi
 
-  # 版本切换和恢复机制
+  # 🔧 终极修复：使用trap确保版本恢复
   local NEED_RESTORE=0
   
   if [ -n "$TARGET_VERSION" ] && [ "$TARGET_VERSION" != "$PREVIOUS_VERSION" ]; then
-    echo "🔄 切换 Node 版本: \$PREVIOUS_VERSION -> \$TARGET_VERSION"
+    echo "🔄 切换 Node 版本: $PREVIOUS_VERSION -> $TARGET_VERSION"
     source "${nvmPath}" >/dev/null 2>&1
     nvm use "$TARGET_VERSION" >/dev/null 2>&1
     if [ $? -ne 0 ]; then
@@ -160,12 +88,12 @@ npm() {
       nvm install "$TARGET_VERSION" >/dev/null 2>&1 && nvm use "$TARGET_VERSION" >/dev/null 2>&1
     fi
     
-    # 设置恢复机制
-    trap "echo '📦 执行完成，恢复到之前的 Node.js 版本...'; echo '↩️ 恢复 Node 版本: \$TARGET_VERSION -> \$PREVIOUS_VERSION'; source '${nvmPath}' >/dev/null 2>&1; nvm use '\$PREVIOUS_VERSION' >/dev/null 2>&1" INT
-    trap "echo '📦 执行完成，恢复到之前的 Node.js 版本...'; echo '↩️ 恢复 Node 版本: \$TARGET_VERSION -> \$PREVIOUS_VERSION'; source '${nvmPath}' >/dev/null 2>&1; nvm use '\$PREVIOUS_VERSION' >/dev/null 2>&1" EXIT
+    # 🔧 终极修复：移除exit避免终端闪退
+    trap "echo '📦 执行完成，恢复到之前的 Node.js 版本...'; echo '↩️ 恢复 Node 版本: $TARGET_VERSION -> $PREVIOUS_VERSION'; source '${nvmPath}' >/dev/null 2>&1; nvm use '$PREVIOUS_VERSION' >/dev/null 2>&1" INT
+    trap "echo '📦 执行完成，恢复到之前的 Node.js 版本...'; echo '↩️ 恢复 Node 版本: $TARGET_VERSION -> $PREVIOUS_VERSION'; source '${nvmPath}' >/dev/null 2>&1; nvm use '$PREVIOUS_VERSION' >/dev/null 2>&1" EXIT
   fi
 
-  # 执行 npm 命令
+  # 🔧 最终修复：直接执行npm，避免作业控制复杂性
   command npm "$@"
   local exit_code=$?
   
@@ -174,9 +102,7 @@ npm() {
 }
 ${HOOK_END_MARKER}
 `;
-		}
-
-		if (manager === 'n') {
+		} else if (manager === 'n') {
 			return `${HOOK_MARKER}
 npm() {
   local WORKDIRS='${escapedDirsJson}'
@@ -190,48 +116,51 @@ npm() {
 
   # 检查是否在工作目录中
   if [ -n "$WORKDIRS" ]; then
-    local WORKDIR_INFO=$(echo "$WORKDIRS" | node -e '${versionDetectionJS}' 2>/dev/null)
+    local WORKDIR_INFO=$(echo "$WORKDIRS" | node -e "
+      const workdirs = JSON.parse(require('fs').readFileSync(0, 'utf8'));
+      const cwd = process.cwd();
+      let bestMatch = null;
+      let bestLength = -1;
+      
+      for (const w of workdirs) {
+        if (cwd === w.dir || cwd.startsWith(w.dir + '/')) {
+          if (w.dir.length > bestLength) {
+            bestMatch = w;
+            bestLength = w.dir.length;
+          }
+        }
+      }
+      
+      if (bestMatch) {
+        const dirName = require('path').basename(bestMatch.dir);
+        console.log(\`\${bestMatch.version}|\${dirName}\`);
+      }
+    " 2>/dev/null)
     
     if [ -n "$WORKDIR_INFO" ]; then
-      TARGET_VERSION="\${WORKDIR_INFO%%|*}"
-      local VERSION_SOURCE="\$(echo "$WORKDIR_INFO" | cut -d'|' -f2)"
-      local WORKDIR_NAME="\$(echo "$WORKDIR_INFO" | cut -d'|' -f3)"
-      local SOURCE_FILE="\$(echo "$WORKDIR_INFO" | cut -d'|' -f4)"
-      
-      if [ "$VERSION_SOURCE" = "config" ]; then
-        echo "📁 检测到配置项目: \$WORKDIR_NAME (Node \$TARGET_VERSION)"
-      else
-        echo "📁 检测到项目版本文件: \$WORKDIR_NAME (Node \$TARGET_VERSION from \$SOURCE_FILE)"
-      fi
+      TARGET_VERSION="\${WORKDIR_INFO%|*}"
+      local WORKDIR_NAME="\${WORKDIR_INFO#*|}"
+      echo "📁 检测到工作目录: $WORKDIR_NAME"
     fi
   fi
 
-  # 版本切换和恢复机制
+  # 🔧 终极修复：使用trap确保版本恢复
+  local NEED_RESTORE=0
+  
   if [ -n "$TARGET_VERSION" ] && [ "$TARGET_VERSION" != "$PREVIOUS_VERSION" ]; then
-    echo "🔄 切换 Node 版本: \$PREVIOUS_VERSION -> \$TARGET_VERSION"
-    
-    # 检查版本是否存在，如不存在则安装
-    if ! n ls 2>/dev/null | grep -q "$TARGET_VERSION"; then
-      echo "⚠️ 版本 $TARGET_VERSION 不存在，正在安装..."
-      n install "$TARGET_VERSION" >/dev/null 2>&1
-      if [ $? -ne 0 ]; then
-        echo "❌ 版本 $TARGET_VERSION 安装失败，将使用当前版本"
-        TARGET_VERSION="$PREVIOUS_VERSION"
-      else
-        echo "✅ 版本 $TARGET_VERSION 安装成功"
-      fi
+    echo "🔄 切换 Node 版本: $PREVIOUS_VERSION -> $TARGET_VERSION"
+    n use "$TARGET_VERSION" >/dev/null 2>&1
+    if [ $? -ne 0 ]; then
+      echo "⚠️ 版本 $TARGET_VERSION 不存在，尝试安装..."
+      n install "$TARGET_VERSION" >/dev/null 2>&1 && n use "$TARGET_VERSION" >/dev/null 2>&1
     fi
     
-    if [ "$TARGET_VERSION" != "$PREVIOUS_VERSION" ]; then
-      n "$TARGET_VERSION" >/dev/null 2>&1
-    fi
-    
-    # 设置恢复机制
-    trap "echo '📦 执行完成，恢复到之前的 Node.js 版本...'; echo '↩️ 恢复 Node 版本: \$TARGET_VERSION -> \$PREVIOUS_VERSION'; n '\$PREVIOUS_VERSION' >/dev/null 2>&1" INT
-    trap "echo '📦 执行完成，恢复到之前的 Node.js 版本...'; echo '↩️ 恢复 Node 版本: \$TARGET_VERSION -> \$PREVIOUS_VERSION'; n '\$PREVIOUS_VERSION' >/dev/null 2>&1" EXIT
+    # 🔧 终极修复：移除exit避免终端闪退
+    trap "echo '📦 执行完成，恢复到之前的 Node.js 版本...'; echo '↩️ 恢复 Node 版本: $TARGET_VERSION -> $PREVIOUS_VERSION'; n use '$PREVIOUS_VERSION' >/dev/null 2>&1" INT
+    trap "echo '📦 执行完成，恢复到之前的 Node.js 版本...'; echo '↩️ 恢复 Node 版本: $TARGET_VERSION -> $PREVIOUS_VERSION'; n use '$PREVIOUS_VERSION' >/dev/null 2>&1" EXIT
   fi
 
-  # 执行 npm 命令
+  # 🔧 最终修复：直接执行npm，避免作业控制复杂性
   command npm "$@"
   local exit_code=$?
   
@@ -246,166 +175,172 @@ ${HOOK_END_MARKER}
 	}
 
 	/**
-	 * 为 Fish Shell 生成 Hook
+	 * 生成可靠的 Fish Hook（基于 node-auto-switch.js 的最新实现）
 	 */
-	private static generateFishHook(
-		manager: string,
-		workdirs: WorkdirConfig[],
-	): string {
-		const dirsJson = JSON.stringify(workdirs);
+	private static generateReliableFishHook(manager: string, workdirs: WorkdirConfig[]): string {
+		// 为了安全起见，对工作目录进行额外验证
+		const validatedWorkdirs = workdirs.map(w => ({
+			dir: Security.validatePath(w.dir),
+			version: Security.validateVersion(w.version)
+		}));
+		
+		const dirsJson = JSON.stringify(validatedWorkdirs);
 		const escapedDirsJson = Security.escapeShellString(dirsJson);
 
-		// 生成版本检测的 JavaScript 代码（与 Bash 版本相同）
-		const versionDetectionJS = this.generateVersionDetectionJS(manager);
+		// 检测 nvm 路径
+		const nvmPaths = [
+			path.join(HOME, '.nvm/nvm.sh'),
+			'/usr/local/share/nvm/nvm.sh',
+			'/opt/homebrew/share/nvm/nvm.sh',
+		];
+		const nvmPath = nvmPaths.find(p => fs.existsSync(p)) || path.join(HOME, '.nvm/nvm.sh');
 
 		if (manager === 'nvm') {
-			const nvmPaths = [
-				path.join(HOME, '.nvm/nvm.sh'),
-				'/usr/local/share/nvm/nvm.sh',
-				'/opt/homebrew/share/nvm/nvm.sh',
-			];
-			const nvmPath =
-				nvmPaths.find(p => fs.existsSync(p)) || path.join(HOME, '.nvm/nvm.sh');
-
 			return `${HOOK_MARKER}
 function npm
     set WORKDIRS '${escapedDirsJson}'
     set TARGET_VERSION ""
     set PREVIOUS_VERSION ""
-    
+
     # 获取当前 Node 版本
     if command -v node >/dev/null 2>&1
         set PREVIOUS_VERSION (node -v 2>/dev/null | sed 's/^v//')
     end
-    
-    # 检查是否在工作目录中（支持 .nvmrc/.node-version 文件检测）
+
+    # 检查是否在工作目录中
     if test -n "$WORKDIRS"
-        set WORKDIR_INFO (echo "$WORKDIRS" | node -e '${versionDetectionJS}' 2>/dev/null)
+        set WORKDIR_INFO (echo "$WORKDIRS" | node -e "
+            const workdirs = JSON.parse(require('fs').readFileSync(0, 'utf8'));
+            const cwd = process.cwd();
+            let bestMatch = null;
+            let bestLength = -1;
+            
+            for (const w of workdirs) {
+                if (cwd === w.dir || cwd.startsWith(w.dir + '/')) {
+                    if (w.dir.length > bestLength) {
+                        bestMatch = w;
+                        bestLength = w.dir.length;
+                    }
+                }
+            }
+            
+            if (bestMatch) {
+                const dirName = require('path').basename(bestMatch.dir);
+                console.log(\`\${bestMatch.version}|\${dirName}\`);
+            }
+        " 2>/dev/null)
         
         if test -n "$WORKDIR_INFO"
-            set TARGET_VERSION (echo "$WORKDIR_INFO" | cut -d'|' -f1)
-            set VERSION_SOURCE (echo "$WORKDIR_INFO" | cut -d'|' -f2)
-            set WORKDIR_NAME (echo "$WORKDIR_INFO" | cut -d'|' -f3)
-            set SOURCE_FILE (echo "$WORKDIR_INFO" | cut -d'|' -f4)
-            
-            if test "$VERSION_SOURCE" = "config"
-                echo "📁 检测到配置项目: $WORKDIR_NAME (Node $TARGET_VERSION)"
-            else
-                echo "📁 检测到项目版本文件: $WORKDIR_NAME (Node $TARGET_VERSION from $SOURCE_FILE)"
-            end
+            set TARGET_VERSION (echo $WORKDIR_INFO | cut -d'|' -f1)
+            set WORKDIR_NAME (echo $WORKDIR_INFO | cut -d'|' -f2)
+            echo "📁 检测到工作目录: $WORKDIR_NAME"
         end
     end
-    
-    # 切换到目标版本
+
+    # 切换版本
     if test -n "$TARGET_VERSION" -a "$TARGET_VERSION" != "$PREVIOUS_VERSION"
         echo "🔄 切换 Node 版本: $PREVIOUS_VERSION -> $TARGET_VERSION"
         
-        # 确保 nvm 已加载
-        if not type -q nvm
-            if test -f "${nvmPath}"
-                source "${nvmPath}" >/dev/null 2>&1
+        # 定义恢复函数
+        function restore_version
+            if test -n "$PREVIOUS_VERSION"
+                echo "📦 执行完成，恢复到之前的 Node.js 版本..."
+                echo "↩️ 恢复 Node 版本: $TARGET_VERSION -> $PREVIOUS_VERSION"
+                bash -c "source '${nvmPath}' >/dev/null 2>&1; nvm use '$PREVIOUS_VERSION' >/dev/null 2>&1"
             end
         end
         
-        nvm use "$TARGET_VERSION" >/dev/null 2>&1
+        # 设置信号处理
+        trap restore_version INT
+        trap restore_version EXIT
+        
+        # 切换到目标版本
+        bash -c "source '${nvmPath}' >/dev/null 2>&1; nvm use '$TARGET_VERSION' >/dev/null 2>&1"
         if test $status -ne 0
             echo "⚠️ 版本 $TARGET_VERSION 不存在，尝试安装..."
-            nvm install "$TARGET_VERSION" >/dev/null 2>&1; and nvm use "$TARGET_VERSION" >/dev/null 2>&1
-        end
-        
-        # Fish shell 修复：版本切换成功后设置恢复机制
-        function _restore_nvm_version --on-signal INT --on-signal TERM
-            echo "📦 执行完成，恢复到之前的 Node.js 版本..."
-            echo "↩️ 恢复 Node 版本: $TARGET_VERSION -> $PREVIOUS_VERSION"
-            nvm use "$PREVIOUS_VERSION" >/dev/null 2>&1
+            bash -c "source '${nvmPath}' >/dev/null 2>&1; nvm install '$TARGET_VERSION' >/dev/null 2>&1; nvm use '$TARGET_VERSION' >/dev/null 2>&1"
         end
     end
-    
+
     # 执行 npm 命令
     command npm $argv
     set exit_code $status
-    
-    # Fish shell 修复：正常完成时恢复版本
-    if test -n "$TARGET_VERSION" -a "$TARGET_VERSION" != "$PREVIOUS_VERSION" -a -n "$PREVIOUS_VERSION"
-        echo "📦 执行完成，恢复到之前的 Node.js 版本..."
-        echo "↩️ 恢复 Node 版本: $TARGET_VERSION -> $PREVIOUS_VERSION"
-        nvm use "$PREVIOUS_VERSION" >/dev/null 2>&1
-    end
     
     return $exit_code
 end
 ${HOOK_END_MARKER}
 `;
-		}
-
-		if (manager === 'n') {
+		} else if (manager === 'n') {
 			return `${HOOK_MARKER}
 function npm
     set WORKDIRS '${escapedDirsJson}'
     set TARGET_VERSION ""
     set PREVIOUS_VERSION ""
-    
+
     # 获取当前 Node 版本
     if command -v node >/dev/null 2>&1
         set PREVIOUS_VERSION (node -v 2>/dev/null | sed 's/^v//')
     end
-    
-    # 检查是否在工作目录中（支持 .nvmrc/.node-version 文件检测）
+
+    # 检查是否在工作目录中
     if test -n "$WORKDIRS"
-        set WORKDIR_INFO (echo "$WORKDIRS" | node -e '${versionDetectionJS}' 2>/dev/null)
+        set WORKDIR_INFO (echo "$WORKDIRS" | node -e "
+            const workdirs = JSON.parse(require('fs').readFileSync(0, 'utf8'));
+            const cwd = process.cwd();
+            let bestMatch = null;
+            let bestLength = -1;
+            
+            for (const w of workdirs) {
+                if (cwd === w.dir || cwd.startsWith(w.dir + '/')) {
+                    if (w.dir.length > bestLength) {
+                        bestMatch = w;
+                        bestLength = w.dir.length;
+                    }
+                }
+            }
+            
+            if (bestMatch) {
+                const dirName = require('path').basename(bestMatch.dir);
+                console.log(\`\${bestMatch.version}|\${dirName}\`);
+            }
+        " 2>/dev/null)
         
         if test -n "$WORKDIR_INFO"
-            set TARGET_VERSION (echo "$WORKDIR_INFO" | cut -d'|' -f1)
-            set VERSION_SOURCE (echo "$WORKDIR_INFO" | cut -d'|' -f2)
-            set WORKDIR_NAME (echo "$WORKDIR_INFO" | cut -d'|' -f3)
-            set SOURCE_FILE (echo "$WORKDIR_INFO" | cut -d'|' -f4)
-            
-            if test "$VERSION_SOURCE" = "config"
-                echo "📁 检测到配置项目: $WORKDIR_NAME (Node $TARGET_VERSION)"
-            else
-                echo "📁 检测到项目版本文件: $WORKDIR_NAME (Node $TARGET_VERSION from $SOURCE_FILE)"
-            end
+            set TARGET_VERSION (echo $WORKDIR_INFO | cut -d'|' -f1)
+            set WORKDIR_NAME (echo $WORKDIR_INFO | cut -d'|' -f2)
+            echo "📁 检测到工作目录: $WORKDIR_NAME"
         end
     end
-    
-    # Fish shell 修复：版本切换和恢复机制
+
+    # 切换版本
     if test -n "$TARGET_VERSION" -a "$TARGET_VERSION" != "$PREVIOUS_VERSION"
         echo "🔄 切换 Node 版本: $PREVIOUS_VERSION -> $TARGET_VERSION"
         
-        # 检查版本是否存在，如不存在则安装
-        if not n ls 2>/dev/null | grep -q "$TARGET_VERSION"
-            echo "⚠️ 版本 $TARGET_VERSION 不存在，正在安装..."
-            n install "$TARGET_VERSION" >/dev/null 2>&1
-            if test $status -ne 0
-                echo "❌ 版本 $TARGET_VERSION 安装失败，将使用当前版本"
-                set TARGET_VERSION "$PREVIOUS_VERSION"
-            else
-                echo "✅ 版本 $TARGET_VERSION 安装成功"
+        # 定义恢复函数
+        function restore_version
+            if test -n "$PREVIOUS_VERSION"
+                echo "📦 执行完成，恢复到之前的 Node.js 版本..."
+                echo "↩️ 恢复 Node 版本: $TARGET_VERSION -> $PREVIOUS_VERSION"
+                n use "$PREVIOUS_VERSION" >/dev/null 2>&1
             end
         end
         
-        if test "$TARGET_VERSION" != "$PREVIOUS_VERSION"
-            n "$TARGET_VERSION" >/dev/null 2>&1
-        end
+        # 设置信号处理
+        trap restore_version INT
+        trap restore_version EXIT
         
-        # Fish shell 修复：版本切换成功后设置恢复机制
-        function _restore_n_version --on-signal INT --on-signal TERM
-            echo "📦 执行完成，恢复到之前的 Node.js 版本..."
-            echo "↩️ 恢复 Node 版本: $TARGET_VERSION -> $PREVIOUS_VERSION"
-            n "$PREVIOUS_VERSION" >/dev/null 2>&1
+        # 切换到目标版本
+        n use "$TARGET_VERSION" >/dev/null 2>&1
+        if test $status -ne 0
+            echo "⚠️ 版本 $TARGET_VERSION 不存在，尝试安装..."
+            n install "$TARGET_VERSION" >/dev/null 2>&1
+            n use "$TARGET_VERSION" >/dev/null 2>&1
         end
     end
-    
+
     # 执行 npm 命令
     command npm $argv
     set exit_code $status
-    
-    # Fish shell 修复：正常完成时恢复版本
-    if test -n "$TARGET_VERSION" -a "$TARGET_VERSION" != "$PREVIOUS_VERSION" -a -n "$PREVIOUS_VERSION"
-        echo "📦 执行完成，恢复到之前的 Node.js 版本..."
-        echo "↩️ 恢复 Node 版本: $TARGET_VERSION -> $PREVIOUS_VERSION"
-        n "$PREVIOUS_VERSION" >/dev/null 2>&1
-    end
     
     return $exit_code
 end
@@ -417,143 +352,232 @@ ${HOOK_END_MARKER}
 	}
 
 	/**
-	 * 为 PowerShell 生成 Hook
+	 * 生成PowerShell Hook（Windows支持）
 	 */
-	private static generatePowerShellHook(
-		manager: string,
-		workdirs: WorkdirConfig[],
-	): string {
-		const dirsJson = JSON.stringify(workdirs);
+	private static generatePowerShellHook(manager: string, workdirs: WorkdirConfig[]): string {
+		// 为了安全起见，对工作目录进行额外验证
+		const validatedWorkdirs = workdirs.map(w => ({
+			dir: Security.validatePath(w.dir),
+			version: Security.validateVersion(w.version)
+		}));
+		
+		const dirsJson = JSON.stringify(validatedWorkdirs);
+		// PowerShell字符串转义：双引号转义，反斜杠转义，换行符转义
+		const escapedDirsJson = dirsJson
+			.replace(/\\/g, '\\\\')  // 反斜杠转义
+			.replace(/"/g, '""')     // PowerShell双引号转义
+			.replace(/\n/g, '\\n')   // 换行符转义
+			.replace(/\r/g, '\\r');  // 回车符转义
 
 		if (manager === 'nvm-windows') {
-			return `${POWERSHELL_HOOK_MARKER}
+			return `${HOOK_MARKER}
 function npm {
-    $WORKDIRS = '${dirsJson}'
+    $WORKDIRS = '${escapedDirsJson}'
     $TARGET_VERSION = ""
     $PREVIOUS_VERSION = ""
-    
-    # 获取当前 Node 版本
-    try {
-        $PREVIOUS_VERSION = (node -v 2>$null).Replace("v", "")
-    } catch {
-        $PREVIOUS_VERSION = ""
-    }
-    
-    # 检查是否在工作目录中
-    if ($WORKDIRS) {
-        try {
-            $workdirArray = $WORKDIRS | ConvertFrom-Json
-            $currentDir = Get-Location
-            
-            foreach ($workdir in $workdirArray) {
-                $resolvedWorkdir = [System.IO.Path]::GetFullPath($workdir.dir)
-                $resolvedCurrent = [System.IO.Path]::GetFullPath($currentDir.Path)
-                
-                if ($resolvedCurrent.StartsWith($resolvedWorkdir)) {
-                    $TARGET_VERSION = $workdir.version
-                    Write-Host "📁 检测到配置项目: $(Split-Path $workdir.dir -Leaf) (Node $TARGET_VERSION)"
-                    break
-                }
-            }
-        } catch {
-            # 忽略 JSON 解析错误
-        }
-    }
-    
-    # 切换到目标版本
-    if ($TARGET_VERSION -and $TARGET_VERSION -ne $PREVIOUS_VERSION) {
-        Write-Host "🔄 切换 Node 版本: $PREVIOUS_VERSION -> $TARGET_VERSION"
-        nvm use $TARGET_VERSION 2>$null
-        if ($LASTEXITCODE -ne 0) {
-            Write-Host "⚠️ 版本 $TARGET_VERSION 未安装，尝试安装..."
-            nvm install $TARGET_VERSION 2>$null
-            if ($LASTEXITCODE -eq 0) {
-                Write-Host "✅ 版本 $TARGET_VERSION 安装成功"
-                nvm use $TARGET_VERSION 2>$null
-            }
-        }
-    }
-    
-    # 执行原始 npm 命令
-    & "npm.cmd" @args
-    $exitCode = $LASTEXITCODE
-    
-    # 命令执行完成后恢复版本
-    if ($TARGET_VERSION -and $TARGET_VERSION -ne $PREVIOUS_VERSION -and $PREVIOUS_VERSION) {
-        Write-Host "📦 执行完成，恢复到之前的 Node.js 版本..."
-        Write-Host "↩️ 恢复 Node 版本: $TARGET_VERSION -> $PREVIOUS_VERSION"
-        nvm use $PREVIOUS_VERSION 2>$null
-    }
-    
-    return $exitCode
-}
-${POWERSHELL_HOOK_END_MARKER}
-`;
-		}
 
-		if (manager === 'fnm' || manager === 'nvs') {
-			return `${POWERSHELL_HOOK_MARKER}
-function npm {
-    $WORKDIRS = '${dirsJson}'
-    $TARGET_VERSION = ""
-    $PREVIOUS_VERSION = ""
-    
     # 获取当前 Node 版本
-    try {
-        $PREVIOUS_VERSION = (node -v 2>$null).Replace("v", "")
-    } catch {
-        $PREVIOUS_VERSION = ""
+    if (Get-Command node -ErrorAction SilentlyContinue) {
+        $PREVIOUS_VERSION = (node -v 2>$null) -replace '^v', ''
     }
-    
+
     # 检查是否在工作目录中
     if ($WORKDIRS) {
-        try {
-            $workdirArray = $WORKDIRS | ConvertFrom-Json
-            $currentDir = Get-Location
-            
-            foreach ($workdir in $workdirArray) {
-                $resolvedWorkdir = [System.IO.Path]::GetFullPath($workdir.dir)
-                $resolvedCurrent = [System.IO.Path]::GetFullPath($currentDir.Path)
-                
-                if ($resolvedCurrent.StartsWith($resolvedWorkdir)) {
-                    $TARGET_VERSION = $workdir.version
-                    Write-Host "📁 检测到配置项目: $(Split-Path $workdir.dir -Leaf) (Node $TARGET_VERSION)"
-                    break
+        $WorkdirInfo = $WORKDIRS | ConvertFrom-Json | ForEach-Object {
+            $workdir = $_
+            $cwd = Get-Location | Select-Object -ExpandProperty Path
+            if ($cwd -eq $workdir.dir -or $cwd.StartsWith($workdir.dir + [System.IO.Path]::DirectorySeparatorChar)) {
+                return @{
+                    version = $workdir.version
+                    name = Split-Path $workdir.dir -Leaf
+                    length = $workdir.dir.Length
                 }
             }
-        } catch {
-            # 忽略 JSON 解析错误
+        } | Sort-Object length -Descending | Select-Object -First 1
+
+        if ($WorkdirInfo) {
+            $TARGET_VERSION = $WorkdirInfo.version
+            $WORKDIR_NAME = $WorkdirInfo.name
+            Write-Host "📁 检测到工作目录: $WORKDIR_NAME" -ForegroundColor Green
         }
     }
-    
-    # 切换到目标版本
+
+    # 切换版本
     if ($TARGET_VERSION -and $TARGET_VERSION -ne $PREVIOUS_VERSION) {
-        Write-Host "🔄 切换 Node 版本: $PREVIOUS_VERSION -> $TARGET_VERSION"
-        ${manager} use $TARGET_VERSION 2>$null
-        if ($LASTEXITCODE -ne 0) {
-            Write-Host "⚠️ 版本 $TARGET_VERSION 未安装，尝试安装..."
-            ${manager} install $TARGET_VERSION 2>$null
-            if ($LASTEXITCODE -eq 0) {
-                Write-Host "✅ 版本 $TARGET_VERSION 安装成功"
-                ${manager} use $TARGET_VERSION 2>$null
+        Write-Host "🔄 切换 Node 版本: $PREVIOUS_VERSION -> $TARGET_VERSION" -ForegroundColor Yellow
+        
+        try {
+            nvm use $TARGET_VERSION 2>$null
+            if ($LASTEXITCODE -ne 0) {
+                Write-Host "⚠️ 版本 $TARGET_VERSION 不存在，尝试安装..." -ForegroundColor Yellow
+                nvm install $TARGET_VERSION
+                nvm use $TARGET_VERSION
             }
+            
+            # 执行 npm 命令
+            & npm.cmd @args
+            $exitCode = $LASTEXITCODE
+            
+            # 恢复版本
+            if ($PREVIOUS_VERSION) {
+                Write-Host "📦 执行完成，恢复到之前的 Node.js 版本..." -ForegroundColor Green
+                Write-Host "↩️ 恢复 Node 版本: $TARGET_VERSION -> $PREVIOUS_VERSION" -ForegroundColor Cyan
+                nvm use $PREVIOUS_VERSION 2>$null
+            }
+            
+            return $exitCode
+        }
+        catch {
+            Write-Host "❌ 版本切换失败: $_" -ForegroundColor Red
+            & npm.cmd @args
         }
     }
-    
-    # 执行原始 npm 命令
-    & "npm.cmd" @args
-    $exitCode = $LASTEXITCODE
-    
-    # 命令执行完成后恢复版本
-    if ($TARGET_VERSION -and $TARGET_VERSION -ne $PREVIOUS_VERSION -and $PREVIOUS_VERSION) {
-        Write-Host "📦 执行完成，恢复到之前的 Node.js 版本..."
-        Write-Host "↩️ 恢复 Node 版本: $TARGET_VERSION -> $PREVIOUS_VERSION"
-        ${manager} use $PREVIOUS_VERSION 2>$null
+    else {
+        # 直接执行 npm
+        & npm.cmd @args
     }
-    
-    return $exitCode
 }
-${POWERSHELL_HOOK_END_MARKER}
+${HOOK_END_MARKER}
+`;
+		} else if (manager === 'fnm') {
+			return `${HOOK_MARKER}
+function npm {
+    $WORKDIRS = '${escapedDirsJson}'
+    $TARGET_VERSION = ""
+    $PREVIOUS_VERSION = ""
+
+    # 获取当前 Node 版本
+    if (Get-Command node -ErrorAction SilentlyContinue) {
+        $PREVIOUS_VERSION = (node -v 2>$null) -replace '^v', ''
+    }
+
+    # 检查是否在工作目录中
+    if ($WORKDIRS) {
+        $WorkdirInfo = $WORKDIRS | ConvertFrom-Json | ForEach-Object {
+            $workdir = $_
+            $cwd = Get-Location | Select-Object -ExpandProperty Path
+            if ($cwd -eq $workdir.dir -or $cwd.StartsWith($workdir.dir + [System.IO.Path]::DirectorySeparatorChar)) {
+                return @{
+                    version = $workdir.version
+                    name = Split-Path $workdir.dir -Leaf
+                    length = $workdir.dir.Length
+                }
+            }
+        } | Sort-Object length -Descending | Select-Object -First 1
+
+        if ($WorkdirInfo) {
+            $TARGET_VERSION = $WorkdirInfo.version
+            $WORKDIR_NAME = $WorkdirInfo.name
+            Write-Host "📁 检测到工作目录: $WORKDIR_NAME" -ForegroundColor Green
+        }
+    }
+
+    # 切换版本
+    if ($TARGET_VERSION -and $TARGET_VERSION -ne $PREVIOUS_VERSION) {
+        Write-Host "🔄 切换 Node 版本: $PREVIOUS_VERSION -> $TARGET_VERSION" -ForegroundColor Yellow
+        
+        try {
+            fnm use $TARGET_VERSION 2>$null
+            if ($LASTEXITCODE -ne 0) {
+                Write-Host "⚠️ 版本 $TARGET_VERSION 不存在，尝试安装..." -ForegroundColor Yellow
+                fnm install $TARGET_VERSION
+                fnm use $TARGET_VERSION
+            }
+            
+            # 执行 npm 命令
+            & npm.cmd @args
+            $exitCode = $LASTEXITCODE
+            
+            # 恢复版本
+            if ($PREVIOUS_VERSION) {
+                Write-Host "📦 执行完成，恢复到之前的 Node.js 版本..." -ForegroundColor Green
+                Write-Host "↩️ 恢复 Node 版本: $TARGET_VERSION -> $PREVIOUS_VERSION" -ForegroundColor Cyan
+                fnm use $PREVIOUS_VERSION 2>$null
+            }
+            
+            return $exitCode
+        }
+        catch {
+            Write-Host "❌ 版本切换失败: $_" -ForegroundColor Red
+            & npm.cmd @args
+        }
+    }
+    else {
+        # 直接执行 npm
+        & npm.cmd @args
+    }
+}
+${HOOK_END_MARKER}
+`;
+		} else if (manager === 'nvs') {
+			return `${HOOK_MARKER}
+function npm {
+    $WORKDIRS = '${escapedDirsJson}'
+    $TARGET_VERSION = ""
+    $PREVIOUS_VERSION = ""
+
+    # 获取当前 Node 版本
+    if (Get-Command node -ErrorAction SilentlyContinue) {
+        $PREVIOUS_VERSION = (node -v 2>$null) -replace '^v', ''
+    }
+
+    # 检查是否在工作目录中
+    if ($WORKDIRS) {
+        $WorkdirInfo = $WORKDIRS | ConvertFrom-Json | ForEach-Object {
+            $workdir = $_
+            $cwd = Get-Location | Select-Object -ExpandProperty Path
+            if ($cwd -eq $workdir.dir -or $cwd.StartsWith($workdir.dir + [System.IO.Path]::DirectorySeparatorChar)) {
+                return @{
+                    version = $workdir.version
+                    name = Split-Path $workdir.dir -Leaf
+                    length = $workdir.dir.Length
+                }
+            }
+        } | Sort-Object length -Descending | Select-Object -First 1
+
+        if ($WorkdirInfo) {
+            $TARGET_VERSION = $WorkdirInfo.version
+            $WORKDIR_NAME = $WorkdirInfo.name
+            Write-Host "📁 检测到工作目录: $WORKDIR_NAME" -ForegroundColor Green
+        }
+    }
+
+    # 切换版本
+    if ($TARGET_VERSION -and $TARGET_VERSION -ne $PREVIOUS_VERSION) {
+        Write-Host "🔄 切换 Node 版本: $PREVIOUS_VERSION -> $TARGET_VERSION" -ForegroundColor Yellow
+        
+        try {
+            nvs use $TARGET_VERSION 2>$null
+            if ($LASTEXITCODE -ne 0) {
+                Write-Host "⚠️ 版本 $TARGET_VERSION 不存在，尝试安装..." -ForegroundColor Yellow
+                nvs add $TARGET_VERSION
+                nvs use $TARGET_VERSION
+            }
+            
+            # 执行 npm 命令
+            & npm.cmd @args
+            $exitCode = $LASTEXITCODE
+            
+            # 恢复版本
+            if ($PREVIOUS_VERSION) {
+                Write-Host "📦 执行完成，恢复到之前的 Node.js 版本..." -ForegroundColor Green
+                Write-Host "↩️ 恢复 Node 版本: $TARGET_VERSION -> $PREVIOUS_VERSION" -ForegroundColor Cyan
+                nvs use $PREVIOUS_VERSION 2>$null
+            }
+            
+            return $exitCode
+        }
+        catch {
+            Write-Host "❌ 版本切换失败: $_" -ForegroundColor Red
+            & npm.cmd @args
+        }
+    }
+    else {
+        # 直接执行 npm
+        & npm.cmd @args
+    }
+}
+${HOOK_END_MARKER}
 `;
 		}
 
@@ -561,94 +585,78 @@ ${POWERSHELL_HOOK_END_MARKER}
 	}
 
 	/**
-	 * 添加 Hook 到 Shell 配置文件
+	 * 添加 Hook 到指定的 shell 配置文件
 	 */
-	static addHook(
-		shellRcPath: string,
-		manager: string,
-		workdirs: WorkdirConfig[],
-	): void {
+	static addHook(shellRcPath: string, manager: string, workdirs: WorkdirConfig[]): void {
 		try {
 			// 确保文件存在
 			if (!fs.existsSync(shellRcPath)) {
+				// 确保目录存在
+				const dir = path.dirname(shellRcPath);
+				if (!fs.existsSync(dir)) {
+					fs.mkdirSync(dir, { recursive: true });
+				}
 				fs.writeFileSync(shellRcPath, '', 'utf8');
 			}
 
 			let content = fs.readFileSync(shellRcPath, 'utf8');
 
 			// 移除现有 hook
-			const regex = new RegExp(
-				`${HOOK_MARKER}[\\s\\S]*?${HOOK_END_MARKER}\\n?`,
-				'g',
-			);
+			const regex = new RegExp(`${HOOK_MARKER}[\\s\\S]*?${HOOK_END_MARKER}\\n?`, 'g');
 			content = content.replace(regex, '');
 
-			// 生成新 hook
+			// 检测配置文件类型并生成对应的 hook
 			let hook = '';
+			const isPowerShell = shellRcPath.endsWith('.ps1');
 			const isFishShell = shellRcPath.includes('config.fish');
-			const isPowerShell =
-				shellRcPath.includes('.ps1') || shellRcPath.includes('PowerShell');
+			const isCmdBatch = shellRcPath.endsWith('.bat') || shellRcPath.endsWith('.cmd');
 
 			if (isPowerShell) {
 				hook = this.generatePowerShellHook(manager, workdirs);
 			} else if (isFishShell) {
-				hook = this.generateFishHook(manager, workdirs);
+				hook = this.generateReliableFishHook(manager, workdirs);
+			} else if (isCmdBatch) {
+				// CMD 不支持函数，跳过
+				console.warn(`⚠️ CMD 不支持自定义函数，跳过 ${path.basename(shellRcPath)} 配置`);
+				return;
 			} else {
-				hook = this.generateBashHook(manager, workdirs);
+				// 默认使用 Bash/Zsh hook
+				hook = this.generateReliableBashHook(manager, workdirs);
 			}
 
-			// 添加 hook
-			const separator = content.endsWith('\n') ? '' : '\n';
-			content += `${separator}${hook}`;
-
-			fs.writeFileSync(shellRcPath, content, 'utf8');
-			console.log(`✅ 已成功配置 ${path.basename(shellRcPath)}`);
+			if (hook) {
+				// 添加 hook
+				content += '\n' + hook;
+				fs.writeFileSync(shellRcPath, content, 'utf8');
+				console.log(`✅ 已成功配置 ${path.basename(shellRcPath)}`);
+			}
 		} catch (error) {
-			console.error(`❌ 更新 ${shellRcPath} 失败: ${(error as Error).message}`);
+			throw new Error(`配置 ${shellRcPath} 失败: ${(error as Error).message}`);
 		}
 	}
 
 	/**
-	 * 移除 Shell 配置文件中的 Hook
+	 * 从指定的 shell 配置文件中移除 Hook
 	 */
 	static removeHook(shellRcPath: string): void {
 		try {
 			if (!fs.existsSync(shellRcPath)) {
-				console.warn(`⚠️ 文件不存在: ${shellRcPath}`);
+				console.warn(`文件不存在: ${shellRcPath}`);
 				return;
 			}
 
 			const content = fs.readFileSync(shellRcPath, 'utf8');
-			const regex = new RegExp(
-				`${HOOK_MARKER}[\\s\\S]*?${HOOK_END_MARKER}\\n?`,
-				'g',
-			);
+			const regex = new RegExp(`${HOOK_MARKER}[\\s\\S]*?${HOOK_END_MARKER}\\n?`, 'g');
 			const newContent = content.replace(regex, '');
 
 			if (newContent !== content) {
 				fs.writeFileSync(shellRcPath, newContent, 'utf8');
-				console.log(`✅ 已清理 ${path.basename(shellRcPath)} 中的 hook`);
+				console.log(`✅ 已从 ${path.basename(shellRcPath)} 中移除 Hook`);
 			} else {
-				console.log(`ℹ️ ${path.basename(shellRcPath)} 中没有找到 hook`);
+				console.log(`ℹ️ ${path.basename(shellRcPath)} 中没有找到 Hook`);
 			}
 		} catch (error) {
-			console.error(`❌ 清理 ${shellRcPath} 失败: ${(error as Error).message}`);
-		}
-	}
-
-	/**
-	 * 检查 Shell 配置文件中是否存在 Hook
-	 */
-	static hasHook(shellRcPath: string): boolean {
-		try {
-			if (!fs.existsSync(shellRcPath)) {
-				return false;
-			}
-
-			const content = fs.readFileSync(shellRcPath, 'utf8');
-			return content.includes(HOOK_MARKER);
-		} catch {
-			return false;
+			throw new Error(`清理 ${shellRcPath} 失败: ${(error as Error).message}`);
 		}
 	}
 }

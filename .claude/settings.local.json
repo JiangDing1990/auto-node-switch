@@ -15,7 +15,12 @@
       "Bash(npm run lint:*)",
       "Bash(chmod:*)",
       "Bash(npm run:*)",
-      "Bash(npm pack:*)"
+      "Bash(npm pack:*)",
+      "Read(//Users/jiangding/**)",
+      "Bash(npm --version)",
+      "Bash(source:*)",
+      "Bash(npm init:*)",
+      "Bash(declare -f npm)"
     ],
     "deny": [],
     "ask": []

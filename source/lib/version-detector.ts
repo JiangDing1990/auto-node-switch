@@ -237,10 +237,14 @@ export function readVersionFile(
 	manager = 'nvm',
 ): string | undefined {
 	// 根据版本管理器类型调整优先级
-	const versionFiles =
-		manager === 'n'
-			? ['.node-version', '.nvmrc', 'package.json'] // n 用户优先 .node-version
-			: ['.nvmrc', '.node-version', 'package.json']; // nvm 用户优先 .nvmrc
+	let versionFiles: string[];
+	if (manager === 'n') {
+		versionFiles = ['.node-version', '.nvmrc', 'package.json']; // n 用户优先 .node-version
+	} else if (manager === 'nvm-windows' || manager === 'nvs') {
+		versionFiles = ['.nvmrc', '.node-version', 'package.json']; // Windows版本管理器优先 .nvmrc
+	} else {
+		versionFiles = ['.nvmrc', '.node-version', 'package.json']; // 默认优先 .nvmrc
+	}
 
 	for (const fileName of versionFiles) {
 		const filePath = path.join(projectDir, fileName);
@@ -402,6 +406,84 @@ export function getInstalledVersionsFnm(): string[] {
 }
 
 /**
+ * 检测已安装的 Node.js 版本（通过 nvm-windows）
+ */
+export function getInstalledVersionsNvmWindows(): string[] {
+	try {
+		const output = execSync('nvm list', {
+			encoding: 'utf8',
+			timeout: 5000,
+		});
+
+		// 解析 nvm-windows list 输出
+		const versions = output
+			.split('\n')
+			.map(line => {
+				// 匹配版本号，nvm-windows 格式略有不同
+				const match = /v?(\d+\.\d+\.\d+)/.exec(line);
+				return match ? match[1] : undefined;
+			})
+			.filter((version): version is string => version !== null)
+			.filter((version, index, array) => array.indexOf(version) === index) // 去重
+			.sort((a, b) => {
+				// 简单的版本号排序
+				const aParts = a.split('.').map(Number);
+				const bParts = b.split('.').map(Number);
+				for (let i = 0; i < 3; i++) {
+					if (aParts[i] !== bParts[i]) {
+						return (bParts[i] ?? 0) - (aParts[i] ?? 0); // 降序
+					}
+				}
+
+				return 0;
+			});
+
+		return versions;
+	} catch {
+		return [];
+	}
+}
+
+/**
+ * 检测已安装的 Node.js 版本（通过 nvs）
+ */
+export function getInstalledVersionsNvs(): string[] {
+	try {
+		const output = execSync('nvs list', {
+			encoding: 'utf8',
+			timeout: 5000,
+		});
+
+		// 解析 nvs list 输出
+		const versions = output
+			.split('\n')
+			.map(line => {
+				// 匹配版本号
+				const match = /(\d+\.\d+\.\d+)/.exec(line);
+				return match ? match[1] : undefined;
+			})
+			.filter((version): version is string => version !== null)
+			.filter((version, index, array) => array.indexOf(version) === index) // 去重
+			.sort((a, b) => {
+				// 简单的版本号排序
+				const aParts = a.split('.').map(Number);
+				const bParts = b.split('.').map(Number);
+				for (let i = 0; i < 3; i++) {
+					if (aParts[i] !== bParts[i]) {
+						return (bParts[i] ?? 0) - (aParts[i] ?? 0); // 降序
+					}
+				}
+
+				return 0;
+			});
+
+		return versions;
+	} catch {
+		return [];
+	}
+}
+
+/**
  * 根据管理器类型获取已安装版本
  */
 export function getInstalledVersions(manager: string): string[] {
@@ -416,6 +498,14 @@ export function getInstalledVersions(manager: string): string[] {
 
 		case 'fnm': {
 			return getInstalledVersionsFnm();
+		}
+
+		case 'nvm-windows': {
+			return getInstalledVersionsNvmWindows();
+		}
+
+		case 'nvs': {
+			return getInstalledVersionsNvs();
 		}
 
 		default: {
