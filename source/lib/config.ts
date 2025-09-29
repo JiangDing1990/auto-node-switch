@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import process from 'node:process';
 import os from 'node:os';
 
 const HOME = os.homedir();
@@ -30,7 +31,7 @@ export class ConfigPaths {
 	 * XDG 标准配置目录
 	 */
 	static get xdgConfigHome(): string {
-		return process.env['XDG_CONFIG_HOME'] || path.join(HOME, '.config');
+		return process.env['XDG_CONFIG_HOME'] ?? path.join(HOME, '.config');
 	}
 
 	/**
@@ -159,6 +160,14 @@ export class ConfigCache {
 	}
 
 	/**
+	 * 清除缓存
+	 */
+	clearCache(): void {
+		this.data = undefined;
+		this.lastModified = 0;
+	}
+
+	/**
 	 * 验证配置数据格式
 	 */
 	private validateConfig(config: any): AppConfig {
@@ -197,14 +206,6 @@ export class ConfigCache {
 			workdirs: [],
 			lastUpdated: undefined,
 		};
-	}
-
-	/**
-	 * 清除缓存
-	 */
-	clearCache(): void {
-		this.data = undefined;
-		this.lastModified = 0;
 	}
 
 	/**

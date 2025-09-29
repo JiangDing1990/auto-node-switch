@@ -1,5 +1,6 @@
-import React, {useState, useEffect} from 'react';
+import process from 'node:process';
 import {execSync} from 'node:child_process';
+import React, {useState, useEffect} from 'react';
 import {Box, Text, useInput} from 'ink';
 import SelectInput from 'ink-select-input';
 import TextInput from 'ink-text-input';
@@ -348,6 +349,10 @@ function MainMenu({
 				onExit();
 				break;
 			}
+
+			default: {
+				break;
+			}
 		}
 	};
 
@@ -426,6 +431,10 @@ function ConfigManagement({
 
 			case 'back': {
 				onBack();
+				break;
+			}
+
+			default: {
 				break;
 			}
 		}
@@ -547,27 +556,41 @@ function ProjectList({
 
 			{config.workdirs && config.workdirs.length > 0 ? (
 				<Box flexDirection="column" marginBottom={2}>
-					{config.workdirs.map((workdir, index) => (
-						<Box key={index} marginBottom={1}>
-							<Text>
-								{figures.pointer} 📂 {workdir.dir}
-							</Text>
-							<Text color="green">   🏷 Node.js {workdir.version}</Text>
-							<Text color="gray">   📝 版本文件: {(() => {
-								if (config.manager === 'n') return '.node-version';
-								if (config.manager === 'nvm-windows' || config.manager === 'nvs' || config.manager === 'fnm') return '.nvmrc';
-								return '.nvmrc'; // 默认
-							})()}</Text>
-						</Box>
-					))}
+					{config.workdirs.map((workdir, _index) => {
+						const itemKey = `${workdir.dir}::${workdir.version}`;
+						return (
+							<Box key={`${itemKey}`} marginBottom={1}>
+								<Text>
+									{figures.pointer} 📂 {workdir.dir}
+								</Text>
+								<Text color="green"> 🏷 Node.js {workdir.version}</Text>
+								<Text color="gray">
+									{' '}
+									📝 版本文件:{' '}
+									{(() => {
+										if (config.manager === 'n') return '.node-version';
+										if (
+											config.manager === 'nvm-windows' ||
+											config.manager === 'nvs' ||
+											config.manager === 'fnm'
+										)
+											return '.nvmrc';
+										return '.nvmrc'; // 默认
+									})()}
+								</Text>
+							</Box>
+						);
+					})}
 					<Box marginTop={1}>
-						<Text color="cyan">💡 共配置了 {config.workdirs.length} 个项目</Text>
+						<Text color="cyan">
+							💡 共配置了 {config.workdirs.length} 个项目
+						</Text>
 					</Box>
 				</Box>
 			) : (
 				<Box marginBottom={2}>
 					<Text color="gray">🗒️ 暂无项目配置</Text>
-					<Text color="gray">💡 请选择 "快速配置" 来添加第一个项目</Text>
+					<Text color="gray">💡 请选择 快速配置 来添加第一个项目</Text>
 				</Box>
 			)}
 
@@ -649,6 +672,7 @@ function AddProject({
 			return () => clearTimeout(timer);
 		}
 
+		// eslint-disable-next-line @typescript-eslint/no-empty-function
 		return () => {}; // 默认返回空的清理函数
 	}, [step, onBack]);
 
@@ -658,13 +682,23 @@ function AddProject({
 				<Text color="green">✅ 项目配置添加成功！</Text>
 				<Text>📂 项目路径: {projectDir}</Text>
 				<Text>🏷 Node.js 版本: {projectVersion}</Text>
-				<Text>📝 版本文件: {(() => {
-					if (config.manager === 'n') return '.node-version';
-					if (config.manager === 'nvm-windows' || config.manager === 'nvs' || config.manager === 'fnm') return '.nvmrc';
-					return '.nvmrc'; // 默认
-				})()}</Text>
+				<Text>
+					📝 版本文件:{' '}
+					{(() => {
+						if (config.manager === 'n') return '.node-version';
+						if (
+							config.manager === 'nvm-windows' ||
+							config.manager === 'nvs' ||
+							config.manager === 'fnm'
+						)
+							return '.nvmrc';
+						return '.nvmrc'; // 默认
+					})()}
+				</Text>
 				<Box marginTop={1}>
-					<Text color="cyan">💡 进入该目录时将自动切换到 Node {projectVersion}</Text>
+					<Text color="cyan">
+						💡 进入该目录时将自动切换到 Node {projectVersion}
+					</Text>
 				</Box>
 				<Box marginTop={1}>
 					<Text color="yellow">⌨️ 按任意键返回... (3秒后自动返回)</Text>
@@ -762,8 +796,11 @@ function DeleteProject({
 			const timer = setTimeout(() => {
 				onBack();
 			}, 3000);
+
 			return () => clearTimeout(timer);
 		}
+
+		// eslint-disable-next-line @typescript-eslint/no-empty-function
 		return () => {};
 	}, [hasNoConfig, deletedProject, onBack]);
 
@@ -807,12 +844,12 @@ function DeleteProject({
 
 		// 获取要删除的项目路径
 		const projectToDelete = config.workdirs[item.value as number];
-		const projectName = projectToDelete?.dir || '';
-		
+		const projectName = projectToDelete?.dir ?? '';
+
 		const newConfig = {...config};
 		newConfig.workdirs = newConfig.workdirs.filter((_, i) => i !== item.value);
 		onConfigChange(newConfig);
-		
+
 		// 设置删除成功状态，显示提示信息
 		setDeletedProject(projectName);
 	};
@@ -885,20 +922,21 @@ function HookOperationStatus({
 					let sourcedCount = 0;
 					shellRcFiles.forEach(rcFile => {
 						try {
-							execSync(`source ${rcFile}`, { 
-								shell: process.env['SHELL'] || '/bin/bash',
-								stdio: 'pipe'
+							execSync(`source ${rcFile}`, {
+								shell: process.env['SHELL'] ?? '/bin/bash',
+								stdio: 'pipe',
 							});
 							sourcedCount++;
-						} catch (error) {
+						} catch {
 							// 静默失败，在结果消息中会提示用户手动执行
 						}
 					});
 
 					const baseMessage = `🔄✅ 已重新生成 ${processedCount} 个Hook配置`;
-					const sourceMessage = sourcedCount > 0 ? 
-						`\n🎉 配置已自动生效！` : 
-						`\n⚠️ 请手动刷新Shell配置`;
+					const sourceMessage =
+						sourcedCount > 0
+							? `\n🎉 配置已自动生效！`
+							: `\n⚠️ 请手动刷新Shell配置`;
 
 					setResult({
 						success: true,
@@ -910,7 +948,9 @@ function HookOperationStatus({
 							HookManager.removeHook(rcFile);
 							processedCount++;
 						} catch (error) {
-							console.warn(`🧹❌ 清理 ${rcFile} 失败: ${(error as Error).message}`);
+							console.warn(
+								`🧹❌ 清理 ${rcFile} 失败: ${(error as Error).message}`,
+							);
 						}
 					});
 
@@ -946,6 +986,7 @@ function HookOperationStatus({
 			return () => clearTimeout(timer);
 		}
 
+		// eslint-disable-next-line @typescript-eslint/no-empty-function
 		return () => {};
 	}, [isProcessing, result.success, onComplete]);
 
@@ -955,7 +996,9 @@ function HookOperationStatus({
 				<Box>
 					<Spinner type="dots" />
 					<Text>
-						{type === 'regenerate' ? '⏳ 正在重新生成Hook...' : '⏳ 正在清理Hook...'}
+						{type === 'regenerate'
+							? '⏳ 正在重新生成Hook...'
+							: '⏳ 正在清理Hook...'}
 					</Text>
 				</Box>
 			</Box>
@@ -972,7 +1015,7 @@ function HookOperationStatus({
 					{type === 'regenerate' && result.message?.includes('请手动刷新') && (
 						<Box marginTop={1}>
 							<Text color="cyan">💡 请运行以下命令使配置立即生效：</Text>
-							<Text color="gray">  source ~/.{config.shell}rc</Text>
+							<Text color="gray"> source ~/.{config.shell}rc</Text>
 						</Box>
 					)}
 					{type === 'clean' && (

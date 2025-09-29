@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import process from 'node:process';
 import {execSync} from 'node:child_process';
 import os from 'node:os';
 
@@ -40,7 +41,7 @@ export function detectOS(): 'macos' | 'linux' | 'windows' | 'unknown' {
 export async function detectShell(): Promise<ShellInfo> {
 	const shellInfo: ShellInfo = {
 		name: 'unknown',
-		path: process.env['SHELL'] || '',
+		path: process.env['SHELL'] ?? '',
 		version: '',
 		detected: false,
 	};
@@ -179,7 +180,7 @@ export function getShellConfigFiles(shellType: string): string[] {
 		case 'powershell': {
 			if (currentOS === 'windows') {
 				// PowerShell 配置文件路径
-				const documentsPath = process.env['USERPROFILE'] || HOME;
+				const documentsPath = process.env['USERPROFILE'] ?? HOME;
 				const profiles = [
 					path.join(
 						documentsPath,
@@ -255,9 +256,9 @@ export function readVersionFile(
 					const packageJson = JSON.parse(fs.readFileSync(filePath, 'utf8'));
 					const nodeVersion = packageJson.engines?.node;
 					if (nodeVersion) {
-						// 解析 package.json 中的版本范围，取最低版本
-						const match = nodeVersion.match(/(\d+\.\d+\.\d+|\d+\.\d+|\d+)/);
-						return match ? match[1] : undefined;
+						// 改进的 package.json 版本解析，支持更多格式
+						const version = parseEngineVersion(nodeVersion);
+						if (version) return version;
 					}
 				} else {
 					const content = fs.readFileSync(filePath, 'utf8').trim();
@@ -271,6 +272,58 @@ export function readVersionFile(
 		}
 	}
 
+	return undefined;
+}
+
+/**
+ * 解析 package.json engines.node 版本规范
+ */
+function parseEngineVersion(versionSpec: string): string | undefined {
+	// 移除空格
+	const spec = versionSpec.trim();
+
+	// 常见格式处理
+	const patterns = [
+		// 精确版本: "18.17.1", "v18.17.1"
+		/^v?(\d+\.\d+\.\d+)$/,
+		// 主版本: "18", ">=18"
+		/^>=?\s*v?(\d+)$/,
+		// 主版本.次版本: "18.17", ">=18.17"
+		/^>=?\s*v?(\d+\.\d+)$/,
+		// 主版本.次版本.修订版: ">=18.17.1"
+		/^>=?\s*v?(\d+\.\d+\.\d+)$/,
+		// 范围表达式的最低版本: ">=16.0.0 <19.0.0"
+		/^>=?\s*v?(\d+\.\d+\.\d+)\s+<.*$/,
+		// 波浪号范围: "~18.17.0"
+		/^~\s*v?(\d+\.\d+\.\d+)$/,
+		// 插入符范围: "^18.17.0"
+		/^\^\s*v?(\d+\.\d+\.\d+)$/,
+	];
+
+	for (const pattern of patterns) {
+		const match = spec.match(pattern);
+		if (match) {
+			let version = match[1]!;
+
+			// 补全版本号
+			const parts = version.split('.');
+			if (parts.length === 1) {
+				version = `${parts[0]}.0.0`; // 18 -> 18.0.0
+			} else if (parts.length === 2) {
+				version = `${parts[0]}.${parts[1]}.0`; // 18.17 -> 18.17.0
+			}
+
+			return version;
+		}
+	}
+
+	// 特殊情况：LTS 标识符
+	if (spec.includes('lts')) {
+		// 返回当前LTS版本，这里可以设置一个默认值
+		return '18.17.0'; // 当前LTS版本，可以配置化
+	}
+
+	// 如果无法解析，返回undefined
 	return undefined;
 }
 

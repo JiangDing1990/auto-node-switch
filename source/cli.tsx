@@ -2,6 +2,7 @@
 import path from 'node:path';
 import fs from 'node:fs';
 import {execSync} from 'node:child_process';
+import process from 'node:process';
 import React from 'react';
 import {render} from 'ink';
 import meow from 'meow';
@@ -53,12 +54,12 @@ if (args.length > 0) {
 	try {
 		switch (command) {
 			case 'add': {
-				await handleAddCommand(args[1] || '', args[2] || '');
+				await handleAddCommand(args[1] ?? '', args[2] ?? '');
 				break;
 			}
 
 			case 'remove': {
-				await handleRemoveCommand(args[1] || '');
+				await handleRemoveCommand(args[1] ?? '');
 				break;
 			}
 
@@ -112,70 +113,78 @@ async function handleAddCommand(
 		process.exit(1);
 	}
 
-	try {
-		const validatedPath = Security.validatePath(projectPath);
-		const validatedVersion = Security.validateVersion(version);
+	const validatedPath = Security.validatePath(projectPath);
+	const validatedVersion = Security.validateVersion(version);
 
-		const config = configCache.getConfig();
-		config.workdirs = config.workdirs || [];
+	const config = configCache.getConfig();
+	config.workdirs = config.workdirs || [];
 
-		// 检查重复
-		const existingIndex = config.workdirs.findIndex(
-			w => path.resolve(w.dir) === validatedPath,
+	// 检查重复
+	const existingIndex = config.workdirs.findIndex(
+		w => path.resolve(w.dir) === validatedPath,
+	);
+	if (existingIndex >= 0) {
+		console.log(
+			`⚠️ 项目 ${path.basename(
+				validatedPath,
+			)} 已存在，更新版本为 ${validatedVersion}`,
 		);
-		if (existingIndex >= 0) {
-			console.log(
-				`⚠️ 项目 ${path.basename(
-					validatedPath,
-				)} 已存在，更新版本为 ${validatedVersion}`,
-			);
-			config.workdirs[existingIndex]!.version = validatedVersion;
-		} else {
-			config.workdirs.push({dir: validatedPath, version: validatedVersion});
-			console.log(
-				`✅ 已添加项目 ${path.basename(
-					validatedPath,
-				)} → Node ${validatedVersion}`,
-			);
-		}
+		config.workdirs[existingIndex]!.version = validatedVersion;
+	} else {
+		config.workdirs.push({dir: validatedPath, version: validatedVersion});
+		console.log(
+			`✅ 已添加项目 ${path.basename(
+				validatedPath,
+			)} → Node ${validatedVersion}`,
+		);
+	}
 
-		// 创建版本文件
-		try {
-			fs.mkdirSync(validatedPath, {recursive: true});
-			// 根据版本管理器选择合适的版本文件名
-			let versionFileName = '.nvmrc'; // 默认
-			if (config.manager === 'n') {
+	// 创建版本文件
+	try {
+		fs.mkdirSync(validatedPath, {recursive: true});
+		// 根据版本管理器选择合适的版本文件名
+		let versionFileName = '.nvmrc'; // 默认
+		switch (config.manager) {
+			case 'n': {
 				versionFileName = '.node-version';
-			} else if (config.manager === 'nvm-windows' || config.manager === 'nvs') {
+
+				break;
+			}
+
+			case 'nvm-windows':
+			case 'nvs': {
 				// Windows 版本管理器通常兼容 .nvmrc
 				versionFileName = '.nvmrc';
-			} else if (config.manager === 'fnm') {
+
+				break;
+			}
+
+			case 'fnm': {
 				// fnm 既支持 .nvmrc 也支持 .node-version，优先 .nvmrc
 				versionFileName = '.nvmrc';
+
+				break;
 			}
-			
-			fs.writeFileSync(
-				path.join(validatedPath, versionFileName),
-				validatedVersion,
-				'utf8',
-			);
-			console.log(`ℹ️ 已创建 ${versionFileName} 文件`);
-		} catch (error) {
-			console.warn(`⚠️ 创建版本文件失败: ${(error as Error).message}`);
+			// No default
 		}
 
-		configCache.saveConfig(config);
-
-		// 如果有基本配置，重新生成Hook
-		if (config.shell && config.manager) {
-			await handleRegenerateCommand();
-		} else {
-			console.warn(
-				'⚠️ 尚未配置终端类型和版本管理器，请运行交互模式进行初始设置',
-			);
-		}
+		fs.writeFileSync(
+			path.join(validatedPath, versionFileName),
+			validatedVersion,
+			'utf8',
+		);
+		console.log(`ℹ️ 已创建 ${versionFileName} 文件`);
 	} catch (error) {
-		throw error;
+		console.warn(`⚠️ 创建版本文件失败: ${(error as Error).message}`);
+	}
+
+	configCache.saveConfig(config);
+
+	// 如果有基本配置，重新生成Hook
+	if (config.shell && config.manager) {
+		await handleRegenerateCommand();
+	} else {
+		console.warn('⚠️ 尚未配置终端类型和版本管理器，请运行交互模式进行初始设置');
 	}
 }
 
@@ -186,27 +195,23 @@ async function handleRemoveCommand(projectPath: string): Promise<void> {
 		process.exit(1);
 	}
 
-	try {
-		const validatedPath = Security.validatePath(projectPath);
-		const config = configCache.getConfig();
+	const validatedPath = Security.validatePath(projectPath);
+	const config = configCache.getConfig();
 
-		const initialLength = config.workdirs.length;
-		config.workdirs = config.workdirs.filter(
-			w => path.resolve(w.dir) !== validatedPath,
-		);
+	const initialLength = config.workdirs.length;
+	config.workdirs = config.workdirs.filter(
+		w => path.resolve(w.dir) !== validatedPath,
+	);
 
-		if (config.workdirs.length < initialLength) {
-			console.log(`✅ 已删除项目配置: ${path.basename(validatedPath)}`);
-			configCache.saveConfig(config);
+	if (config.workdirs.length < initialLength) {
+		console.log(`✅ 已删除项目配置: ${path.basename(validatedPath)}`);
+		configCache.saveConfig(config);
 
-			if (config.shell && config.manager) {
-				await handleRegenerateCommand();
-			}
-		} else {
-			console.warn(`⚠️ 未找到项目配置: ${path.basename(validatedPath)}`);
+		if (config.shell && config.manager) {
+			await handleRegenerateCommand();
 		}
-	} catch (error) {
-		throw error;
+	} else {
+		console.warn(`⚠️ 未找到项目配置: ${path.basename(validatedPath)}`);
 	}
 }
 
@@ -214,7 +219,7 @@ function handleListCommand(): void {
 	const config = configCache.getConfig();
 
 	console.log('\n' + getColoredBanner('mini'));
-	
+
 	if (!config.workdirs || config.workdirs.length === 0) {
 		console.log('ℹ️ 暂无项目配置');
 		return;
@@ -293,37 +298,41 @@ async function handleRegenerateCommand(): Promise<void> {
 
 	if (generatedCount > 0) {
 		console.log(`✅ 已重新生成 ${generatedCount} 个Hook配置`);
-		
+
 		// 自动执行source命令刷新Shell配置
 		console.log('\n🔄 正在自动刷新Shell配置...');
 		let sourcedCount = 0;
-		
+
 		shellRcFiles.forEach(rcFile => {
 			try {
 				// 检查文件类型，为不同的shell配置文件使用不同的刷新策略
 				const isPowerShell = rcFile.endsWith('.ps1');
 				const isFishShell = rcFile.includes('config.fish');
-				
+
 				if (isPowerShell) {
 					// PowerShell配置文件需要重新加载配置文件
 					console.log(`⚠️ PowerShell配置已更新，请重启PowerShell或手动执行:`);
 					console.log(`  . ${rcFile}`);
 					return; // PowerShell 不支持在子进程中source
-				} else if (isFishShell) {
-					// Fish shell 使用不同的source命令
-					execSync(`fish -c "source ${rcFile}"`, { 
-						stdio: 'pipe'
+				}
+
+				if (isFishShell) {
+					// Fish shell 使用不同的source命令，安全转义文件路径
+					const escapedPath = rcFile.replace(/'/g, "'\\''");
+					execSync(`fish -c "source '${escapedPath}'"`, {
+						stdio: 'pipe',
 					});
 				} else {
-					// Bash/Zsh使用传统的source命令
-					execSync(`bash -c "source ${rcFile}"`, { 
-						stdio: 'pipe'
+					// Bash/Zsh使用传统的source命令，安全转义文件路径
+					const escapedPath = rcFile.replace(/'/g, "'\\''");
+					execSync(`bash -c "source '${escapedPath}'"`, {
+						stdio: 'pipe',
 					});
 				}
-				
+
 				sourcedCount++;
 				console.log(`✅ 已刷新 ${path.basename(rcFile)}`);
-			} catch (error) {
+			} catch {
 				console.warn(`⚠️ 自动刷新 ${path.basename(rcFile)} 失败，请手动执行:`);
 				if (rcFile.endsWith('.ps1')) {
 					console.warn(`  . ${rcFile}`);
@@ -334,9 +343,11 @@ async function handleRegenerateCommand(): Promise<void> {
 				}
 			}
 		});
-		
+
 		if (sourcedCount > 0) {
-			console.log(`\n🎉 配置已自动生效！现在可以在配置的项目目录中使用npm命令了`);
+			console.log(
+				`\n🎉 配置已自动生效！现在可以在配置的项目目录中使用npm命令了`,
+			);
 		}
 	}
 }

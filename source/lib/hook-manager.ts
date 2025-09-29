@@ -14,15 +14,108 @@ const HOOK_END_MARKER = '# Node.js 工作目录环境切换 END';
  */
 export class HookManager {
 	/**
+	 * 添加 Hook 到指定的 shell 配置文件
+	 */
+	static addHook(
+		shellRcPath: string,
+		manager: string,
+		workdirs: WorkdirConfig[],
+	): void {
+		try {
+			// 确保文件存在
+			if (!fs.existsSync(shellRcPath)) {
+				// 确保目录存在
+				const dir = path.dirname(shellRcPath);
+				if (!fs.existsSync(dir)) {
+					fs.mkdirSync(dir, {recursive: true});
+				}
+
+				fs.writeFileSync(shellRcPath, '', 'utf8');
+			}
+
+			let content = fs.readFileSync(shellRcPath, 'utf8');
+
+			// 移除现有 hook
+			const regex = new RegExp(
+				`${HOOK_MARKER}[\\s\\S]*?${HOOK_END_MARKER}\\n?`,
+				'g',
+			);
+			content = content.replace(regex, '');
+
+			// 检测配置文件类型并生成对应的 hook
+			let hook = '';
+			const isPowerShell = shellRcPath.endsWith('.ps1');
+			const isFishShell = shellRcPath.includes('config.fish');
+			const isCmdBatch =
+				shellRcPath.endsWith('.bat') || shellRcPath.endsWith('.cmd');
+
+			if (isPowerShell) {
+				hook = this.generatePowerShellHook(manager, workdirs);
+			} else if (isFishShell) {
+				hook = this.generateReliableFishHook(manager, workdirs);
+			} else if (isCmdBatch) {
+				// CMD 不支持函数，跳过
+				console.warn(
+					`⚠️ CMD 不支持自定义函数，跳过 ${path.basename(shellRcPath)} 配置`,
+				);
+				return;
+			} else {
+				// 默认使用 Bash/Zsh hook
+				hook = this.generateReliableBashHook(manager, workdirs);
+			}
+
+			if (hook) {
+				// 添加 hook
+				content += '\n' + hook;
+				fs.writeFileSync(shellRcPath, content, 'utf8');
+				console.log(`✅ 已成功配置 ${path.basename(shellRcPath)}`);
+			}
+		} catch (error) {
+			throw new Error(`配置 ${shellRcPath} 失败: ${(error as Error).message}`);
+		}
+	}
+
+	/**
+	 * 从指定的 shell 配置文件中移除 Hook
+	 */
+	static removeHook(shellRcPath: string): void {
+		try {
+			if (!fs.existsSync(shellRcPath)) {
+				console.warn(`文件不存在: ${shellRcPath}`);
+				return;
+			}
+
+			const content = fs.readFileSync(shellRcPath, 'utf8');
+			const regex = new RegExp(
+				`${HOOK_MARKER}[\\s\\S]*?${HOOK_END_MARKER}\\n?`,
+				'g',
+			);
+			const newContent = content.replace(regex, '');
+			// eslint-disable-next-line no-negated-condition
+			if (newContent !== content) {
+				fs.writeFileSync(shellRcPath, newContent, 'utf8');
+				console.log(`✅ 已从 ${path.basename(shellRcPath)} 中移除 Hook`);
+			} else {
+				console.log(`ℹ️ ${path.basename(shellRcPath)} 中没有找到 Hook`);
+			}
+		} catch (error) {
+			throw new Error(`清理 ${shellRcPath} 失败: ${(error as Error).message}`);
+		}
+	}
+
+	/**
 	 * 生成可靠的 Bash Hook（基于 node-auto-switch.js 的最新实现）
 	 */
-	private static generateReliableBashHook(manager: string, workdirs: WorkdirConfig[]): string {
+	private static generateReliableBashHook(
+		manager: string,
+		workdirs: WorkdirConfig[],
+	): string {
 		// 为了安全起见，对工作目录进行额外验证
 		const validatedWorkdirs = workdirs.map(w => ({
 			dir: Security.validatePath(w.dir),
-			version: Security.validateVersion(w.version)
+			version: Security.validateVersion(w.version),
 		}));
-		
+
 		const dirsJson = JSON.stringify(validatedWorkdirs);
 		const escapedDirsJson = Security.escapeShellString(dirsJson);
 
@@ -32,7 +125,8 @@ export class HookManager {
 			'/usr/local/share/nvm/nvm.sh',
 			'/opt/homebrew/share/nvm/nvm.sh',
 		];
-		const nvmPath = nvmPaths.find(p => fs.existsSync(p)) || path.join(HOME, '.nvm/nvm.sh');
+		const nvmPath =
+			nvmPaths.find(p => fs.existsSync(p)) ?? path.join(HOME, '.nvm/nvm.sh');
 
 		if (manager === 'nvm') {
 			return `${HOOK_MARKER}
@@ -46,28 +140,56 @@ npm() {
     PREVIOUS_VERSION="$(node -v 2>/dev/null | sed 's/^v//')"
   fi
 
-  # 检查是否在工作目录中
+  # 检查是否在工作目录中 (纯Shell实现，避免Node.js依赖)
   if [ -n "$WORKDIRS" ]; then
-    local WORKDIR_INFO=$(echo "$WORKDIRS" | node -e "
-      const workdirs = JSON.parse(require('fs').readFileSync(0, 'utf8'));
-      const cwd = process.cwd();
-      let bestMatch = null;
-      let bestLength = -1;
-      
-      for (const w of workdirs) {
-        if (cwd === w.dir || cwd.startsWith(w.dir + '/')) {
-          if (w.dir.length > bestLength) {
-            bestMatch = w;
-            bestLength = w.dir.length;
-          }
-        }
-      }
-      
-      if (bestMatch) {
-        const dirName = require('path').basename(bestMatch.dir);
-        console.log(\`\${bestMatch.version}|\${dirName}\`);
-      }
-    " 2>/dev/null)
+    local CURRENT_DIR="$(pwd)"
+    local WORKDIR_INFO=""
+    
+    # 优先使用Python解析JSON（更可靠）
+    if command -v python3 >/dev/null 2>&1; then
+      WORKDIR_INFO=$(echo "$WORKDIRS" | python3 -c "
+import json, sys, os
+try:
+    workdirs = json.load(sys.stdin)
+    cwd = os.getcwd()
+    best_match = None
+    best_length = -1
+    
+    for w in workdirs:
+        w_dir = w['dir']
+        if cwd == w_dir or cwd.startswith(w_dir + '/'):
+            if len(w_dir) > best_length:
+                best_match = w
+                best_length = len(w_dir)
+    
+    if best_match:
+        dir_name = os.path.basename(best_match['dir'])
+        print(best_match['version'] + '|' + dir_name)
+except:
+    pass
+" 2>/dev/null)
+    elif command -v python >/dev/null 2>&1; then
+      WORKDIR_INFO=$(echo "$WORKDIRS" | python -c "
+import json, sys, os
+try:
+    workdirs = json.load(sys.stdin)
+    cwd = os.getcwd()
+    best_match = None
+    best_length = -1
+    
+    for w in workdirs:
+        w_dir = w['dir']
+        if cwd == w_dir or cwd.startswith(w_dir + '/'):
+            if len(w_dir) > best_length:
+                best_match = w
+                best_length = len(w_dir)
+    
+    if best_match:
+        dir_name = os.path.basename(best_match['dir'])
+        print(best_match['version'] + '|' + dir_name)
+except:
+    pass
+" 2>/dev/null)
     
     if [ -n "$WORKDIR_INFO" ]; then
       TARGET_VERSION="\${WORKDIR_INFO%|*}"
@@ -102,7 +224,9 @@ npm() {
 }
 ${HOOK_END_MARKER}
 `;
-		} else if (manager === 'n') {
+		}
+
+		if (manager === 'n') {
 			return `${HOOK_MARKER}
 npm() {
   local WORKDIRS='${escapedDirsJson}'
@@ -114,28 +238,56 @@ npm() {
     PREVIOUS_VERSION="$(node -v 2>/dev/null | sed 's/^v//')"
   fi
 
-  # 检查是否在工作目录中
+  # 检查是否在工作目录中 (纯Shell实现，避免Node.js依赖)
   if [ -n "$WORKDIRS" ]; then
-    local WORKDIR_INFO=$(echo "$WORKDIRS" | node -e "
-      const workdirs = JSON.parse(require('fs').readFileSync(0, 'utf8'));
-      const cwd = process.cwd();
-      let bestMatch = null;
-      let bestLength = -1;
-      
-      for (const w of workdirs) {
-        if (cwd === w.dir || cwd.startsWith(w.dir + '/')) {
-          if (w.dir.length > bestLength) {
-            bestMatch = w;
-            bestLength = w.dir.length;
-          }
-        }
-      }
-      
-      if (bestMatch) {
-        const dirName = require('path').basename(bestMatch.dir);
-        console.log(\`\${bestMatch.version}|\${dirName}\`);
-      }
-    " 2>/dev/null)
+    local CURRENT_DIR="$(pwd)"
+    local WORKDIR_INFO=""
+    
+    # 优先使用Python解析JSON（更可靠）
+    if command -v python3 >/dev/null 2>&1; then
+      WORKDIR_INFO=$(echo "$WORKDIRS" | python3 -c "
+import json, sys, os
+try:
+    workdirs = json.load(sys.stdin)
+    cwd = os.getcwd()
+    best_match = None
+    best_length = -1
+    
+    for w in workdirs:
+        w_dir = w['dir']
+        if cwd == w_dir or cwd.startswith(w_dir + '/'):
+            if len(w_dir) > best_length:
+                best_match = w
+                best_length = len(w_dir)
+    
+    if best_match:
+        dir_name = os.path.basename(best_match['dir'])
+        print(best_match['version'] + '|' + dir_name)
+except:
+    pass
+" 2>/dev/null)
+    elif command -v python >/dev/null 2>&1; then
+      WORKDIR_INFO=$(echo "$WORKDIRS" | python -c "
+import json, sys, os
+try:
+    workdirs = json.load(sys.stdin)
+    cwd = os.getcwd()
+    best_match = None
+    best_length = -1
+    
+    for w in workdirs:
+        w_dir = w['dir']
+        if cwd == w_dir or cwd.startswith(w_dir + '/'):
+            if len(w_dir) > best_length:
+                best_match = w
+                best_length = len(w_dir)
+    
+    if best_match:
+        dir_name = os.path.basename(best_match['dir'])
+        print(best_match['version'] + '|' + dir_name)
+except:
+    pass
+" 2>/dev/null)
     
     if [ -n "$WORKDIR_INFO" ]; then
       TARGET_VERSION="\${WORKDIR_INFO%|*}"
@@ -177,13 +329,16 @@ ${HOOK_END_MARKER}
 	/**
 	 * 生成可靠的 Fish Hook（基于 node-auto-switch.js 的最新实现）
 	 */
-	private static generateReliableFishHook(manager: string, workdirs: WorkdirConfig[]): string {
+	private static generateReliableFishHook(
+		manager: string,
+		workdirs: WorkdirConfig[],
+	): string {
 		// 为了安全起见，对工作目录进行额外验证
 		const validatedWorkdirs = workdirs.map(w => ({
 			dir: Security.validatePath(w.dir),
-			version: Security.validateVersion(w.version)
+			version: Security.validateVersion(w.version),
 		}));
-		
+
 		const dirsJson = JSON.stringify(validatedWorkdirs);
 		const escapedDirsJson = Security.escapeShellString(dirsJson);
 
@@ -193,7 +348,8 @@ ${HOOK_END_MARKER}
 			'/usr/local/share/nvm/nvm.sh',
 			'/opt/homebrew/share/nvm/nvm.sh',
 		];
-		const nvmPath = nvmPaths.find(p => fs.existsSync(p)) || path.join(HOME, '.nvm/nvm.sh');
+		const nvmPath =
+			nvmPaths.find(p => fs.existsSync(p)) ?? path.join(HOME, '.nvm/nvm.sh');
 
 		if (manager === 'nvm') {
 			return `${HOOK_MARKER}
@@ -207,28 +363,56 @@ function npm
         set PREVIOUS_VERSION (node -v 2>/dev/null | sed 's/^v//')
     end
 
-    # 检查是否在工作目录中
+    # 检查是否在工作目录中 (Fish语法，避免Node.js依赖)
     if test -n "$WORKDIRS"
-        set WORKDIR_INFO (echo "$WORKDIRS" | node -e "
-            const workdirs = JSON.parse(require('fs').readFileSync(0, 'utf8'));
-            const cwd = process.cwd();
-            let bestMatch = null;
-            let bestLength = -1;
-            
-            for (const w of workdirs) {
-                if (cwd === w.dir || cwd.startsWith(w.dir + '/')) {
-                    if (w.dir.length > bestLength) {
-                        bestMatch = w;
-                        bestLength = w.dir.length;
-                    }
-                }
-            }
-            
-            if (bestMatch) {
-                const dirName = require('path').basename(bestMatch.dir);
-                console.log(\`\${bestMatch.version}|\${dirName}\`);
-            }
-        " 2>/dev/null)
+        set WORKDIR_INFO ""
+        
+        # 优先使用Python解析JSON
+        if command -v python3 >/dev/null 2>&1
+            set WORKDIR_INFO (echo "$WORKDIRS" | python3 -c "
+import json, sys, os
+try:
+    workdirs = json.load(sys.stdin)
+    cwd = os.getcwd()
+    best_match = None
+    best_length = -1
+    
+    for w in workdirs:
+        w_dir = w['dir']
+        if cwd == w_dir or cwd.startswith(w_dir + '/'):
+            if len(w_dir) > best_length:
+                best_match = w
+                best_length = len(w_dir)
+    
+    if best_match:
+        dir_name = os.path.basename(best_match['dir'])
+        print(best_match['version'] + '|' + dir_name)
+except:
+    pass
+" 2>/dev/null)
+        else if command -v python >/dev/null 2>&1
+            set WORKDIR_INFO (echo "$WORKDIRS" | python -c "
+import json, sys, os
+try:
+    workdirs = json.load(sys.stdin)
+    cwd = os.getcwd()
+    best_match = None
+    best_length = -1
+    
+    for w in workdirs:
+        w_dir = w['dir']
+        if cwd == w_dir or cwd.startswith(w_dir + '/'):
+            if len(w_dir) > best_length:
+                best_match = w
+                best_length = len(w_dir)
+    
+    if best_match:
+        dir_name = os.path.basename(best_match['dir'])
+        print(best_match['version'] + '|' + dir_name)
+except:
+    pass
+" 2>/dev/null)
+        end
         
         if test -n "$WORKDIR_INFO"
             set TARGET_VERSION (echo $WORKDIR_INFO | cut -d'|' -f1)
@@ -270,7 +454,9 @@ function npm
 end
 ${HOOK_END_MARKER}
 `;
-		} else if (manager === 'n') {
+		}
+
+		if (manager === 'n') {
 			return `${HOOK_MARKER}
 function npm
     set WORKDIRS '${escapedDirsJson}'
@@ -282,28 +468,56 @@ function npm
         set PREVIOUS_VERSION (node -v 2>/dev/null | sed 's/^v//')
     end
 
-    # 检查是否在工作目录中
+    # 检查是否在工作目录中 (Fish语法，避免Node.js依赖)
     if test -n "$WORKDIRS"
-        set WORKDIR_INFO (echo "$WORKDIRS" | node -e "
-            const workdirs = JSON.parse(require('fs').readFileSync(0, 'utf8'));
-            const cwd = process.cwd();
-            let bestMatch = null;
-            let bestLength = -1;
-            
-            for (const w of workdirs) {
-                if (cwd === w.dir || cwd.startsWith(w.dir + '/')) {
-                    if (w.dir.length > bestLength) {
-                        bestMatch = w;
-                        bestLength = w.dir.length;
-                    }
-                }
-            }
-            
-            if (bestMatch) {
-                const dirName = require('path').basename(bestMatch.dir);
-                console.log(\`\${bestMatch.version}|\${dirName}\`);
-            }
-        " 2>/dev/null)
+        set WORKDIR_INFO ""
+        
+        # 优先使用Python解析JSON
+        if command -v python3 >/dev/null 2>&1
+            set WORKDIR_INFO (echo "$WORKDIRS" | python3 -c "
+import json, sys, os
+try:
+    workdirs = json.load(sys.stdin)
+    cwd = os.getcwd()
+    best_match = None
+    best_length = -1
+    
+    for w in workdirs:
+        w_dir = w['dir']
+        if cwd == w_dir or cwd.startswith(w_dir + '/'):
+            if len(w_dir) > best_length:
+                best_match = w
+                best_length = len(w_dir)
+    
+    if best_match:
+        dir_name = os.path.basename(best_match['dir'])
+        print(best_match['version'] + '|' + dir_name)
+except:
+    pass
+" 2>/dev/null)
+        else if command -v python >/dev/null 2>&1
+            set WORKDIR_INFO (echo "$WORKDIRS" | python -c "
+import json, sys, os
+try:
+    workdirs = json.load(sys.stdin)
+    cwd = os.getcwd()
+    best_match = None
+    best_length = -1
+    
+    for w in workdirs:
+        w_dir = w['dir']
+        if cwd == w_dir or cwd.startswith(w_dir + '/'):
+            if len(w_dir) > best_length:
+                best_match = w
+                best_length = len(w_dir)
+    
+    if best_match:
+        dir_name = os.path.basename(best_match['dir'])
+        print(best_match['version'] + '|' + dir_name)
+except:
+    pass
+" 2>/dev/null)
+        end
         
         if test -n "$WORKDIR_INFO"
             set TARGET_VERSION (echo $WORKDIR_INFO | cut -d'|' -f1)
@@ -354,20 +568,23 @@ ${HOOK_END_MARKER}
 	/**
 	 * 生成PowerShell Hook（Windows支持）
 	 */
-	private static generatePowerShellHook(manager: string, workdirs: WorkdirConfig[]): string {
+	private static generatePowerShellHook(
+		manager: string,
+		workdirs: WorkdirConfig[],
+	): string {
 		// 为了安全起见，对工作目录进行额外验证
 		const validatedWorkdirs = workdirs.map(w => ({
 			dir: Security.validatePath(w.dir),
-			version: Security.validateVersion(w.version)
+			version: Security.validateVersion(w.version),
 		}));
-		
+
 		const dirsJson = JSON.stringify(validatedWorkdirs);
 		// PowerShell字符串转义：双引号转义，反斜杠转义，换行符转义
 		const escapedDirsJson = dirsJson
-			.replace(/\\/g, '\\\\')  // 反斜杠转义
-			.replace(/"/g, '""')     // PowerShell双引号转义
-			.replace(/\n/g, '\\n')   // 换行符转义
-			.replace(/\r/g, '\\r');  // 回车符转义
+			.replace(/\\/g, '\\\\') // 反斜杠转义
+			.replace(/"/g, '""') // PowerShell双引号转义
+			.replace(/\n/g, '\\n') // 换行符转义
+			.replace(/\r/g, '\\r'); // 回车符转义
 
 		if (manager === 'nvm-windows') {
 			return `${HOOK_MARKER}
@@ -425,7 +642,9 @@ function npm {
                 nvm use $PREVIOUS_VERSION 2>$null
             }
             
-            return $exitCode
+            # PowerShell函数正确返回退出码
+            $global:LASTEXITCODE = $exitCode
+            exit $exitCode
         }
         catch {
             Write-Host "❌ 版本切换失败: $_" -ForegroundColor Red
@@ -439,7 +658,9 @@ function npm {
 }
 ${HOOK_END_MARKER}
 `;
-		} else if (manager === 'fnm') {
+		}
+
+		if (manager === 'fnm') {
 			return `${HOOK_MARKER}
 function npm {
     $WORKDIRS = '${escapedDirsJson}'
@@ -495,21 +716,31 @@ function npm {
                 fnm use $PREVIOUS_VERSION 2>$null
             }
             
-            return $exitCode
+            # PowerShell函数正确返回退出码
+            $global:LASTEXITCODE = $exitCode
+            exit $exitCode
         }
         catch {
             Write-Host "❌ 版本切换失败: $_" -ForegroundColor Red
             & npm.cmd @args
+            $exitCode = $LASTEXITCODE
+            $global:LASTEXITCODE = $exitCode
+            exit $exitCode
         }
     }
     else {
         # 直接执行 npm
         & npm.cmd @args
+        $exitCode = $LASTEXITCODE
+        $global:LASTEXITCODE = $exitCode
+        exit $exitCode
     }
 }
 ${HOOK_END_MARKER}
 `;
-		} else if (manager === 'nvs') {
+		}
+
+		if (manager === 'nvs') {
 			return `${HOOK_MARKER}
 function npm {
     $WORKDIRS = '${escapedDirsJson}'
@@ -565,16 +796,24 @@ function npm {
                 nvs use $PREVIOUS_VERSION 2>$null
             }
             
-            return $exitCode
+            # PowerShell函数正确返回退出码
+            $global:LASTEXITCODE = $exitCode
+            exit $exitCode
         }
         catch {
             Write-Host "❌ 版本切换失败: $_" -ForegroundColor Red
             & npm.cmd @args
+            $exitCode = $LASTEXITCODE
+            $global:LASTEXITCODE = $exitCode
+            exit $exitCode
         }
     }
     else {
         # 直接执行 npm
         & npm.cmd @args
+        $exitCode = $LASTEXITCODE
+        $global:LASTEXITCODE = $exitCode
+        exit $exitCode
     }
 }
 ${HOOK_END_MARKER}
@@ -582,81 +821,5 @@ ${HOOK_END_MARKER}
 		}
 
 		return '';
-	}
-
-	/**
-	 * 添加 Hook 到指定的 shell 配置文件
-	 */
-	static addHook(shellRcPath: string, manager: string, workdirs: WorkdirConfig[]): void {
-		try {
-			// 确保文件存在
-			if (!fs.existsSync(shellRcPath)) {
-				// 确保目录存在
-				const dir = path.dirname(shellRcPath);
-				if (!fs.existsSync(dir)) {
-					fs.mkdirSync(dir, { recursive: true });
-				}
-				fs.writeFileSync(shellRcPath, '', 'utf8');
-			}
-
-			let content = fs.readFileSync(shellRcPath, 'utf8');
-
-			// 移除现有 hook
-			const regex = new RegExp(`${HOOK_MARKER}[\\s\\S]*?${HOOK_END_MARKER}\\n?`, 'g');
-			content = content.replace(regex, '');
-
-			// 检测配置文件类型并生成对应的 hook
-			let hook = '';
-			const isPowerShell = shellRcPath.endsWith('.ps1');
-			const isFishShell = shellRcPath.includes('config.fish');
-			const isCmdBatch = shellRcPath.endsWith('.bat') || shellRcPath.endsWith('.cmd');
-
-			if (isPowerShell) {
-				hook = this.generatePowerShellHook(manager, workdirs);
-			} else if (isFishShell) {
-				hook = this.generateReliableFishHook(manager, workdirs);
-			} else if (isCmdBatch) {
-				// CMD 不支持函数，跳过
-				console.warn(`⚠️ CMD 不支持自定义函数，跳过 ${path.basename(shellRcPath)} 配置`);
-				return;
-			} else {
-				// 默认使用 Bash/Zsh hook
-				hook = this.generateReliableBashHook(manager, workdirs);
-			}
-
-			if (hook) {
-				// 添加 hook
-				content += '\n' + hook;
-				fs.writeFileSync(shellRcPath, content, 'utf8');
-				console.log(`✅ 已成功配置 ${path.basename(shellRcPath)}`);
-			}
-		} catch (error) {
-			throw new Error(`配置 ${shellRcPath} 失败: ${(error as Error).message}`);
-		}
-	}
-
-	/**
-	 * 从指定的 shell 配置文件中移除 Hook
-	 */
-	static removeHook(shellRcPath: string): void {
-		try {
-			if (!fs.existsSync(shellRcPath)) {
-				console.warn(`文件不存在: ${shellRcPath}`);
-				return;
-			}
-
-			const content = fs.readFileSync(shellRcPath, 'utf8');
-			const regex = new RegExp(`${HOOK_MARKER}[\\s\\S]*?${HOOK_END_MARKER}\\n?`, 'g');
-			const newContent = content.replace(regex, '');
-
-			if (newContent !== content) {
-				fs.writeFileSync(shellRcPath, newContent, 'utf8');
-				console.log(`✅ 已从 ${path.basename(shellRcPath)} 中移除 Hook`);
-			} else {
-				console.log(`ℹ️ ${path.basename(shellRcPath)} 中没有找到 Hook`);
-			}
-		} catch (error) {
-			throw new Error(`清理 ${shellRcPath} 失败: ${(error as Error).message}`);
-		}
 	}
 }

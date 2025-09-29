@@ -2,7 +2,7 @@
 
 🚀 **Node.js 智能版本管理工具** - 为不同项目自动切换对应的 Node.js 版本
 
-[![npm version](https://badge.fury.io/js/auto-node-switch.svg)](https://badge.fury.io/js/auto-node-switch)
+[![npm version](https://badge.fury.io/js/npm.svg)](https://badge.fury.io/js/npm)
 [![Node.js Version](https://img.shields.io/badge/node-%3E%3D16-brightgreen.svg)](https://nodejs.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
@@ -10,7 +10,7 @@
 
 - 🔄 **自动版本切换**：进入项目目录时自动切换到指定的 Node.js 版本，离开时自动恢复
 - 🎯 **智能版本管理**：支持 `npm run dev` 等命令的智能版本管理
-- ⚡ **一键停止**：Ctrl+C 停止服务并自动恢复版本
+- ⚡ **一键停止**：`Ctrl+C` 停止服务并自动恢复版本
 - 🛡️ **安全可靠**：内置安全验证，防止路径注入和恶意操作
 - 🔧 **多工具支持**：兼容 nvm、n、fnm、nvm-windows、nvs 等主流版本管理器
 - 🐚 **多终端支持**：支持 zsh、bash、fish、PowerShell 等主流 shell

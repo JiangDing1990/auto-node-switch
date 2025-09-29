@@ -80,7 +80,7 @@ export const STYLISH_BANNER = `
 
 export const GRADIENT_COLORS = {
 	primary: '#00D2FF',
-	secondary: '#3A7BD5', 
+	secondary: '#3A7BD5',
 	accent: '#FF6B6B',
 	success: '#51CF66',
 	warning: '#FFD43B',
@@ -89,20 +89,33 @@ export const GRADIENT_COLORS = {
 /**
  * 获取带颜色的横幅
  */
-export function getColoredBanner(type: 'full' | 'compact' | 'mini' | 'stylish' | 'exit' = 'compact'): string {
+export function getColoredBanner(
+	type: 'full' | 'compact' | 'mini' | 'stylish' | 'exit' = 'compact',
+): string {
 	switch (type) {
-		case 'full':
+		case 'full': {
 			return ASCII_BANNER;
-		case 'compact':
+		}
+
+		case 'compact': {
 			return COMPACT_BANNER;
-		case 'mini':
+		}
+
+		case 'mini': {
 			return MINI_BANNER;
-		case 'stylish':
+		}
+
+		case 'stylish': {
 			return STYLISH_BANNER;
-		case 'exit':
+		}
+
+		case 'exit': {
 			return EXIT_BANNER;
-		default:
+		}
+
+		default: {
 			return COMPACT_BANNER;
+		}
 	}
 }
 
