@@ -401,7 +401,14 @@ test_cli_commands() {
     assert_contains "$output" "需要指定路径\|❌" "remove命令参数检查测试"
 
     # 测试交互模式Raw mode错误处理
-    output=$(node "$CLI_PATH" 2>&1 || true)
+    # 在非TTY环境中运行，应该会输出错误信息
+    if [[ -t 0 ]]; then
+        # 在TTY环境中，需要使用超时机制避免卡住
+        output=$(timeout 5s node "$CLI_PATH" 2>&1 || true)
+    else
+        # 在非TTY环境中直接运行
+        output=$(node "$CLI_PATH" 2>&1 || true)
+    fi
     assert_contains "$output" "交互模式需要在支持TTY的终端中运行\|❌" "交互模式TTY检查测试"
 }
 

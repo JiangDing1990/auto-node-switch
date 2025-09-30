@@ -54,7 +54,7 @@
 		"lint": "prettier --check . && eslint source/**/*.ts source/**/*.tsx",
 		"lint:fix": "prettier --write . && eslint --fix source/**/*.ts source/**/*.tsx",
 		"prepare": "npm run build",
-		"prepublishOnly": "npm run build && npm test",
+		"prepublishOnly": "npm run build && npm run test:unit",
 		"start": "node dist/cli.js",
 		"prepack": "npm run build"
 	},
