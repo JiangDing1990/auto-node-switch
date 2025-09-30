@@ -776,7 +776,9 @@ function AddProject({
 
 				if (existingConfig.version === validatedVersion) {
 					// 相同路径和版本，显示提示信息
-					console.log(`ℹ️ 项目 ${projectName} 已配置相同版本 Node ${validatedVersion}`);
+					console.log(
+						`ℹ️ 项目 ${projectName} 已配置相同版本 Node ${validatedVersion}`,
+					);
 					console.log(`📂 路径: ${projectDir}`);
 					console.log(`💡 提示: 配置未发生变化，跳过重复添加`);
 				} else {
@@ -793,7 +795,11 @@ function AddProject({
 			} else {
 				// 新项目配置
 				newConfig.workdirs.push({dir: projectDir, version: validatedVersion});
-				console.log(`✅ 已添加项目 ${path.basename(projectDir)} → Node ${validatedVersion}`);
+				console.log(
+					`✅ 已添加项目 ${path.basename(
+						projectDir,
+					)} → Node ${validatedVersion}`,
+				);
 			}
 
 			onConfigChange(newConfig);

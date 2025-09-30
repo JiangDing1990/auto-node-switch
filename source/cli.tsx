@@ -117,7 +117,10 @@ if (args.length > 0) {
 	try {
 		render(<App />);
 	} catch (error) {
-		if (error instanceof Error && error.message.includes('Raw mode is not supported')) {
+		if (
+			error instanceof Error &&
+			error.message.includes('Raw mode is not supported')
+		) {
 			console.error('❌ 终端不支持Raw mode，无法启动交互模式');
 			console.log('\n💡 建议：');
 			console.log('   • 使用命令行模式：auto-node-switch help');
@@ -155,7 +158,9 @@ async function handleAddCommand(
 
 		if (existingConfig.version === validatedVersion) {
 			// 相同路径和版本
-			console.log(`ℹ️ 项目 ${projectName} 已配置相同版本 Node ${validatedVersion}`);
+			console.log(
+				`ℹ️ 项目 ${projectName} 已配置相同版本 Node ${validatedVersion}`,
+			);
 			console.log(`📂 路径: ${validatedPath}`);
 			console.log(`💡 提示: 配置未发生变化，无需重复添加`);
 			return;

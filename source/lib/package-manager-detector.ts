@@ -46,15 +46,30 @@ export function detectPackageManager(projectDir: string): PackageManagerInfo {
 			if (packageJson.packageManager) {
 				const pmSpec = packageJson.packageManager as string;
 				if (pmSpec.startsWith('pnpm@')) {
-					return {type: 'pnpm', lockFile: 'package.json', confidence: 100, detected: true};
+					return {
+						type: 'pnpm',
+						lockFile: 'package.json',
+						confidence: 100,
+						detected: true,
+					};
 				}
 
 				if (pmSpec.startsWith('yarn@')) {
-					return {type: 'yarn', lockFile: 'package.json', confidence: 100, detected: true};
+					return {
+						type: 'yarn',
+						lockFile: 'package.json',
+						confidence: 100,
+						detected: true,
+					};
 				}
 
 				if (pmSpec.startsWith('npm@')) {
-					return {type: 'npm', lockFile: 'package.json', confidence: 100, detected: true};
+					return {
+						type: 'npm',
+						lockFile: 'package.json',
+						confidence: 100,
+						detected: true,
+					};
 				}
 			}
 		}
@@ -74,7 +89,9 @@ export function detectPackageManager(projectDir: string): PackageManagerInfo {
 /**
  * 获取包管理器的安装检查命令
  */
-export function getPackageManagerCheckCommand(type: PackageManagerType): string {
+export function getPackageManagerCheckCommand(
+	type: PackageManagerType,
+): string {
 	switch (type) {
 		case 'npm': {
 			return 'npm --version';
@@ -97,7 +114,9 @@ export function getPackageManagerCheckCommand(type: PackageManagerType): string 
 /**
  * 检查包管理器是否已安装
  */
-export async function isPackageManagerInstalled(type: PackageManagerType): Promise<boolean> {
+export async function isPackageManagerInstalled(
+	type: PackageManagerType,
+): Promise<boolean> {
 	try {
 		const {execSync} = await import('node:child_process');
 		const command = getPackageManagerCheckCommand(type);
@@ -111,7 +130,9 @@ export async function isPackageManagerInstalled(type: PackageManagerType): Promi
 /**
  * 获取包管理器的安装指南
  */
-export function getPackageManagerInstallGuide(type: PackageManagerType): string {
+export function getPackageManagerInstallGuide(
+	type: PackageManagerType,
+): string {
 	switch (type) {
 		case 'yarn': {
 			return 'npm install -g yarn 或访问 https://yarnpkg.com/getting-started/install';
