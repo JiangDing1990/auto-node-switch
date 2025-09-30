@@ -90,7 +90,6 @@
 		"chalk": "^5.2.0",
 		"eslint": "^9.36.0",
 		"eslint-config-prettier": "^10.1.8",
-		"eslint-plugin-unicorn": "^61.0.2",
 		"ink-testing-library": "^3.0.0",
 		"prettier": "^2.8.7",
 		"ts-node": "^10.9.1",

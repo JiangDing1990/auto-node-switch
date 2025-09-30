@@ -1,19 +1,24 @@
 import js from '@eslint/js';
 import tsEslint from '@typescript-eslint/eslint-plugin';
 import tsParser from '@typescript-eslint/parser';
-import unicorn from 'eslint-plugin-unicorn';
 import prettier from 'eslint-config-prettier';
 
 export default [
 	// 忽略的文件和目录
 	{
 		ignores: [
-			'node_modules/**',
+			'**/node_modules/**',
 			'dist/**',
+			'build/**',
+			'coverage/**',
 			'tests/**',
 			'*.js',
 			'*.mjs',
 			'.claude/**',
+			'.git/**',
+			'.DS_Store',
+			'*.log',
+			'*.cache',
 		],
 	},
 
@@ -45,7 +50,6 @@ export default [
 		},
 		plugins: {
 			'@typescript-eslint': tsEslint,
-			unicorn,
 		},
 		rules: {
 			// 基础 ESLint 规则
@@ -86,13 +90,6 @@ export default [
 			],
 			'class-methods-use-this': 'off',
 			'max-classes-per-file': 'off',
-
-			// Unicorn 规则
-			'unicorn/filename-case': 'off',
-			'unicorn/prevent-abbreviations': 'off',
-			'unicorn/no-array-for-each': 'off',
-			'unicorn/no-null': 'off',
-			'unicorn/prefer-module': 'off',
 		},
 	},
 

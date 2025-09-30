@@ -23,7 +23,7 @@ export interface AppConfig {
 	manager: string;
 	shell: string;
 	workdirs: WorkdirConfig[];
-	lastUpdated: string | undefined;
+	lastUpdated: string;
 }
 
 /**
@@ -190,7 +190,7 @@ export class ConfigCache {
 			manager: '',
 			shell: '',
 			workdirs: [],
-			lastUpdated: undefined,
+			lastUpdated: new Date().toISOString(),
 			...config,
 		};
 
@@ -219,7 +219,7 @@ export class ConfigCache {
 			manager: '',
 			shell: '',
 			workdirs: [],
-			lastUpdated: undefined,
+			lastUpdated: new Date().toISOString(),
 		};
 	}
 

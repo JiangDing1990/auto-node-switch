@@ -35,7 +35,7 @@ export default function App(_props: AppProps = {}) {
 		manager: '',
 		shell: '',
 		workdirs: [],
-		lastUpdated: undefined,
+		lastUpdated: new Date().toISOString(),
 	});
 	const [shellInfo, setShellInfo] = useState<any>(null);
 	const [availableManagers, setAvailableManagers] = useState<any[]>([]);
