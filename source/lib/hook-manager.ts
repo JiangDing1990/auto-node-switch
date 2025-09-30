@@ -154,25 +154,31 @@ export class HookManager {
 	 * 包装Hook代码（添加标记）
 	 */
 	private static wrapHook(hookCode: string): string {
-		return `\n${HOOK_MARKER}\n${hookCode}\n${HOOK_END_MARKER}`;
+		// 清理hookCode的首尾空白，避免多余空行
+		const cleanedHookCode = hookCode.trim();
+		return `\n${HOOK_MARKER}\n${cleanedHookCode}\n${HOOK_END_MARKER}`;
 	}
 
 	/**
 	 * 将Hook添加到内容末尾
 	 */
 	private static appendHook(content: string, hook: string): string {
-		// 确保前面有换行符但避免多余换行
-		if (content && !content.endsWith('\n')) {
-			content += '\n';
+		// 清理现有内容的尾部空白
+		let cleanedContent = content.replace(/\s+$/, '');
+
+		// 如果内容不为空，确保有且仅有一个空行分隔
+		if (cleanedContent) {
+			cleanedContent += '\n';
 		}
 
-		content += hook;
+		// 添加Hook
+		cleanedContent += hook;
 
-		// 确保文件末尾有换行符
-		if (!content.endsWith('\n')) {
-			content += '\n';
+		// 确保文件末尾有且仅有一个换行符
+		if (!cleanedContent.endsWith('\n')) {
+			cleanedContent += '\n';
 		}
 
-		return content;
+		return cleanedContent;
 	}
 }
