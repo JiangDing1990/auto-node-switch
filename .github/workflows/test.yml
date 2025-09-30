@@ -172,8 +172,7 @@ jobs:
           npm run build
 
       - name: Test shell compatibility
-        shell: ${{ matrix.shell }} {0}
         run: |
           echo "Testing with ${{ matrix.shell }}"
-          node dist/cli.js --help
+          ${{ matrix.shell }} -c "node dist/cli.js --help"
           echo "Shell compatibility test passed for ${{ matrix.shell }}"
