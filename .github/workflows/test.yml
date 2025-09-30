@@ -27,10 +27,16 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
           cache: 'npm'
+          registry-url: 'https://registry.npmjs.org/'
 
       - name: Clear npm cache (Node.js 16 compatibility)
         if: matrix.node-version == '16'
         run: npm cache clean --force
+
+      - name: Configure npm registry
+        run: |
+          npm config set registry https://registry.npmjs.org/
+          npm config list
 
       - name: Install dependencies
         run: npm ci --no-audit --no-fund --prefer-offline

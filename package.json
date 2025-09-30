@@ -62,6 +62,12 @@
 		"dist",
 		"README.md"
 	],
+	"publishConfig": {
+		"registry": "https://registry.npmjs.org/"
+	},
+	"npmConfig": {
+		"registry": "https://registry.npmjs.org/"
+	},
 	"dependencies": {
 		"figures": "^5.0.0",
 		"ink": "^4.1.0",
