@@ -43,8 +43,8 @@
 		"cross-platform"
 	],
 	"scripts": {
-		"build": "tsc",
-		"dev": "tsc --watch",
+		"build": "npx tsc",
+		"dev": "npx tsc --watch",
 		"test": "npm run test:all",
 		"test:unit": "node --test tests/unit-tests.mjs",
 		"test:comprehensive": "./tests/comprehensive-test.sh",
