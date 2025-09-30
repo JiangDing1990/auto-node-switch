@@ -85,7 +85,8 @@ export class BashShellConfig implements ShellConfig {
 
 	private getTemplates(): Record<string, string> {
 		return {
-			nvm: `npm() {
+			nvm: `# npm包管理器Hook
+npm() {
   local WORKDIRS='{{escapedDirsJson}}'
   local TARGET_VERSION=""
   local PREVIOUS_VERSION=""
@@ -138,11 +139,130 @@ export class BashShellConfig implements ShellConfig {
   # 🔧 最终修复：直接执行npm，避免作业控制复杂性
   command npm "$@"
   local exit_code=$?
-  
+
+  # 正常完成时恢复版本（通过EXIT trap自动处理）
+  return $exit_code
+}
+
+# yarn包管理器Hook
+yarn() {
+  local WORKDIRS='{{escapedDirsJson}}'
+  local TARGET_VERSION=""
+  local PREVIOUS_VERSION=""
+
+  # 获取当前 Node 版本
+  if command -v node >/dev/null 2>&1; then
+    PREVIOUS_VERSION="$(node -v 2>/dev/null | sed 's/^v//')"
+  fi
+
+  # 检查是否在工作目录中 (纯Shell实现，避免Node.js依赖)
+  if [ -n "$WORKDIRS" ]; then
+    local CURRENT_DIR="$(pwd)"
+    local WORKDIR_INFO=""
+
+    # 使用更简单可靠的JSON解析方法
+    local CURRENT_DIR="$(pwd)"
+    # 提取目录和版本，使用更安全的方法
+    local work_dir=$(echo "$WORKDIRS" | sed 's/.*"dir":"\\([^"]*\\)".*/\\1/')
+    local work_version=$(echo "$WORKDIRS" | sed 's/.*"version":"\\([^"]*\\)".*/\\1/')
+
+    # 检查当前目录是否匹配工作目录
+    if [ "$CURRENT_DIR" = "$work_dir" ] || echo "$CURRENT_DIR" | grep -q "^$work_dir/"; then
+      WORKDIR_INFO="$work_version|$(basename "$work_dir")"
+    fi
+
+    if [ -n "$WORKDIR_INFO" ]; then
+      TARGET_VERSION="\${WORKDIR_INFO%|*}"
+      local WORKDIR_NAME="\${WORKDIR_INFO#*|}"
+      echo "📁 检测到工作目录: $WORKDIR_NAME"
+    fi
+  fi
+
+  # 🔧 终极修复：使用trap确保版本恢复
+  local NEED_RESTORE=0
+
+  if [ -n "$TARGET_VERSION" ] && [ "$TARGET_VERSION" != "$PREVIOUS_VERSION" ]; then
+    echo "🔄 切换 Node 版本: $PREVIOUS_VERSION -> $TARGET_VERSION"
+    source "{{nvmPath}}" >/dev/null 2>&1
+    nvm use "$TARGET_VERSION" >/dev/null 2>&1
+    if [ $? -ne 0 ]; then
+      echo "⚠️ 版本 $TARGET_VERSION 不存在，尝试安装..."
+      nvm install "$TARGET_VERSION" >/dev/null 2>&1 && nvm use "$TARGET_VERSION" >/dev/null 2>&1
+    fi
+
+    # 🔧 终极修复：移除exit避免终端闪退
+    trap "echo '📦 执行完成，恢复到之前的 Node.js 版本...'; echo '↩️ 恢复 Node 版本: $TARGET_VERSION -> $PREVIOUS_VERSION'; source '{{nvmPath}}' >/dev/null 2>&1; nvm use '$PREVIOUS_VERSION' >/dev/null 2>&1" INT
+    trap "echo '📦 执行完成，恢复到之前的 Node.js 版本...'; echo '↩️ 恢复 Node 版本: $TARGET_VERSION -> $PREVIOUS_VERSION'; source '{{nvmPath}}' >/dev/null 2>&1; nvm use '$PREVIOUS_VERSION' >/dev/null 2>&1" EXIT
+  fi
+
+  # 🔧 最终修复：直接执行yarn，避免作业控制复杂性
+  command yarn "$@"
+  local exit_code=$?
+
+  # 正常完成时恢复版本（通过EXIT trap自动处理）
+  return $exit_code
+}
+
+# pnpm包管理器Hook
+pnpm() {
+  local WORKDIRS='{{escapedDirsJson}}'
+  local TARGET_VERSION=""
+  local PREVIOUS_VERSION=""
+
+  # 获取当前 Node 版本
+  if command -v node >/dev/null 2>&1; then
+    PREVIOUS_VERSION="$(node -v 2>/dev/null | sed 's/^v//')"
+  fi
+
+  # 检查是否在工作目录中 (纯Shell实现，避免Node.js依赖)
+  if [ -n "$WORKDIRS" ]; then
+    local CURRENT_DIR="$(pwd)"
+    local WORKDIR_INFO=""
+
+    # 使用更简单可靠的JSON解析方法
+    local CURRENT_DIR="$(pwd)"
+    # 提取目录和版本，使用更安全的方法
+    local work_dir=$(echo "$WORKDIRS" | sed 's/.*"dir":"\\([^"]*\\)".*/\\1/')
+    local work_version=$(echo "$WORKDIRS" | sed 's/.*"version":"\\([^"]*\\)".*/\\1/')
+
+    # 检查当前目录是否匹配工作目录
+    if [ "$CURRENT_DIR" = "$work_dir" ] || echo "$CURRENT_DIR" | grep -q "^$work_dir/"; then
+      WORKDIR_INFO="$work_version|$(basename "$work_dir")"
+    fi
+
+    if [ -n "$WORKDIR_INFO" ]; then
+      TARGET_VERSION="\${WORKDIR_INFO%|*}"
+      local WORKDIR_NAME="\${WORKDIR_INFO#*|}"
+      echo "📁 检测到工作目录: $WORKDIR_NAME"
+    fi
+  fi
+
+  # 🔧 终极修复：使用trap确保版本恢复
+  local NEED_RESTORE=0
+
+  if [ -n "$TARGET_VERSION" ] && [ "$TARGET_VERSION" != "$PREVIOUS_VERSION" ]; then
+    echo "🔄 切换 Node 版本: $PREVIOUS_VERSION -> $TARGET_VERSION"
+    source "{{nvmPath}}" >/dev/null 2>&1
+    nvm use "$TARGET_VERSION" >/dev/null 2>&1
+    if [ $? -ne 0 ]; then
+      echo "⚠️ 版本 $TARGET_VERSION 不存在，尝试安装..."
+      nvm install "$TARGET_VERSION" >/dev/null 2>&1 && nvm use "$TARGET_VERSION" >/dev/null 2>&1
+    fi
+
+    # 🔧 终极修复：移除exit避免终端闪退
+    trap "echo '📦 执行完成，恢复到之前的 Node.js 版本...'; echo '↩️ 恢复 Node 版本: $TARGET_VERSION -> $PREVIOUS_VERSION'; source '{{nvmPath}}' >/dev/null 2>&1; nvm use '$PREVIOUS_VERSION' >/dev/null 2>&1" INT
+    trap "echo '📦 执行完成，恢复到之前的 Node.js 版本...'; echo '↩️ 恢复 Node 版本: $TARGET_VERSION -> $PREVIOUS_VERSION'; source '{{nvmPath}}' >/dev/null 2>&1; nvm use '$PREVIOUS_VERSION' >/dev/null 2>&1" EXIT
+  fi
+
+  # 🔧 最终修复：直接执行pnpm，避免作业控制复杂性
+  command pnpm "$@"
+  local exit_code=$?
+
   # 正常完成时恢复版本（通过EXIT trap自动处理）
   return $exit_code
 }`,
-			n: `npm() {
+			n: `# npm包管理器Hook
+npm() {
   local WORKDIRS='{{escapedDirsJson}}'
   local TARGET_VERSION=""
   local PREVIOUS_VERSION=""

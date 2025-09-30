@@ -43,12 +43,19 @@ export class Security {
 	 */
 	static validatePath(inputPath: string): string {
 		if (!inputPath || typeof inputPath !== 'string') {
-			throw new ValidationError('路径不能为空', 'EMPTY_PATH', [
+			throw new SecurityError('路径不能为空', 'EMPTY_PATH', [
 				'请输入有效的目录路径',
 			]);
 		}
 
 		const trimmedPath = inputPath.trim();
+
+		// 检查修剪后的路径是否为空
+		if (!trimmedPath) {
+			throw new SecurityError('路径不能为空', 'EMPTY_PATH', [
+				'请输入有效的目录路径',
+			]);
+		}
 
 		// 检查危险字符，防止命令注入
 		// Windows 允许反斜杠作为路径分隔符，其他系统不允许
@@ -73,6 +80,28 @@ export class Security {
 		if (normalized.includes('..')) {
 			throw new SecurityError('不允许使用相对路径遍历', 'PATH_TRAVERSAL', [
 				'请使用绝对路径或不包含 .. 的相对路径',
+			]);
+		}
+
+		// 检查敏感系统路径
+		const sensitivePatterns = [
+			/^\/etc\b/i,
+			/^\/bin\b/i,
+			/^\/sbin\b/i,
+			/^\/usr\/bin\b/i,
+			/^\/usr\/sbin\b/i,
+			/^\/root\b/i,
+			/^\/sys\b/i,
+			/^\/proc\b/i,
+			/^C:\\Windows\b/i,
+			/^C:\\Program Files\b/i,
+			/^C:\\System\b/i,
+		];
+
+		if (sensitivePatterns.some(pattern => pattern.test(trimmedPath))) {
+			throw new SecurityError('不允许访问系统敏感路径', 'SENSITIVE_PATH', [
+				'请使用用户目录或项目目录路径',
+				'避免使用系统核心目录',
 			]);
 		}
 
@@ -114,16 +143,7 @@ export class Security {
 
 		const trimmed = version.trim();
 
-		// 检查危险字符
-		if (/[;|&$(){}[\]\\`"'<>*?]/.test(trimmed)) {
-			throw new SecurityError(
-				'版本号包含不安全字符',
-				'UNSAFE_VERSION_CHARACTERS',
-				['版本号只能包含数字、点号、字母和连字符'],
-			);
-		}
-
-		// 支持的版本格式
+		// 支持的版本格式 - 先检查格式是否有效
 		const patterns = [
 			/^\d+$/, // 18
 			/^\d+\.\d+$/, // 18.17
@@ -138,6 +158,15 @@ export class Security {
 
 		const isValid = patterns.some(pattern => pattern.test(trimmed));
 		if (!isValid) {
+			// 如果不是有效格式，再检查是否包含危险字符来提供更准确的错误信息
+			if (/[;|&$(){}[\]\\`"'<>]/.test(trimmed)) {
+				throw new ValidationError(
+					'版本号包含不安全字符',
+					'UNSAFE_VERSION_CHARACTERS',
+					['版本号只能包含数字、点号、字母、连字符和斜杠'],
+				);
+			}
+
 			throw new ValidationError('不支持的版本格式', 'INVALID_VERSION_FORMAT', [
 				'支持的格式：18、18.17、18.17.1、v18.17.1、lts/*、lts/hydrogen、latest、stable',
 				'请检查版本号是否正确',

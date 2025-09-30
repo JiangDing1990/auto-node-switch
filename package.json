@@ -45,7 +45,12 @@
 	"scripts": {
 		"build": "tsc",
 		"dev": "tsc --watch",
-		"test": "npm run build",
+		"test": "npm run test:all",
+		"test:unit": "node --test tests/unit-tests.mjs",
+		"test:comprehensive": "./tests/comprehensive-test.sh",
+		"test:all": "./tests/run-tests.sh all",
+		"test:performance": "./tests/run-tests.sh performance",
+		"test:parallel": "./tests/run-tests.sh all --parallel",
 		"lint": "prettier --check . && xo",
 		"lint:fix": "prettier --write . && xo --fix",
 		"prepare": "npm run build",

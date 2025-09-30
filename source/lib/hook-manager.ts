@@ -15,8 +15,8 @@ import {
 	type TemplateData,
 } from './shell-configs/index.js';
 
-const HOOK_MARKER = '# Node.js 工作目录环境切换';
-const HOOK_END_MARKER = '# Node.js 工作目录环境切换 END';
+const HOOK_MARKER = '# AUTO_NODE_SWITCH_HOOK_START';
+const HOOK_END_MARKER = '# AUTO_NODE_SWITCH_HOOK_END';
 
 /**
  * Hook管理器
@@ -129,11 +129,25 @@ export class HookManager {
 	 * 移除现有Hook
 	 */
 	private static removeExistingHook(content: string): string {
-		const regex = new RegExp(
+		// 支持新的标记格式
+		const newRegex = new RegExp(
 			`${HOOK_MARKER}[\\s\\S]*?${HOOK_END_MARKER}\\n?`,
 			'g',
 		);
-		return content.replace(regex, '');
+
+		// 支持旧的标记格式（向后兼容）
+		const oldRegex = new RegExp(
+			`# Node\\.js 工作目录环境切换[\\s\\S]*?# Node\\.js 工作目录环境切换 END\\n?`,
+			'g',
+		);
+
+		// 移除新格式的Hook
+		let result = content.replace(newRegex, '');
+
+		// 移除旧格式的Hook
+		result = result.replace(oldRegex, '');
+
+		return result;
 	}
 
 	/**

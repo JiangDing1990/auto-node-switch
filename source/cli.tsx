@@ -100,7 +100,32 @@ if (args.length > 0) {
 	}
 } else {
 	// 交互模式
-	render(<App />);
+	// 检查是否支持交互式终端和Raw mode
+	if (!process.stdin.isTTY || typeof process.stdin.setRawMode !== 'function') {
+		console.error('❌ 交互模式需要在支持TTY的终端中运行');
+		console.log('\n💡 解决方案：');
+		console.log('   • 请在支持交互的终端中运行（如Terminal、CMD、PowerShell）');
+		console.log('   • 避免在CI/CD环境或通过管道运行交互模式');
+		console.log('   • 可以使用命令行模式代替：');
+		console.log('     - auto-node-switch add <路径> <版本>');
+		console.log('     - auto-node-switch list');
+		console.log('     - auto-node-switch help');
+		console.log('\n📋 查看所有可用命令：auto-node-switch help');
+		process.exit(1);
+	}
+
+	try {
+		render(<App />);
+	} catch (error) {
+		if (error instanceof Error && error.message.includes('Raw mode is not supported')) {
+			console.error('❌ 终端不支持Raw mode，无法启动交互模式');
+			console.log('\n💡 建议：');
+			console.log('   • 使用命令行模式：auto-node-switch help');
+			console.log('   • 更换支持Raw mode的终端应用');
+			process.exit(1);
+		}
+		throw error;
+	}
 }
 
 async function handleAddCommand(
