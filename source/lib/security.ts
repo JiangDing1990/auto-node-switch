@@ -93,9 +93,9 @@ export class Security {
 			/^\/root\b/i,
 			/^\/sys\b/i,
 			/^\/proc\b/i,
-			/^C:\\Windows\b/i,
-			/^C:\\Program Files\b/i,
-			/^C:\\System\b/i,
+			/^c:\\windows\b/i,
+			/^c:\\program files\b/i,
+			/^c:\\system\b/i,
 		];
 
 		if (sensitivePatterns.some(pattern => pattern.test(trimmedPath))) {

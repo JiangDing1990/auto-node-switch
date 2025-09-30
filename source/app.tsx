@@ -335,7 +335,7 @@ function InitialSetup({
 }
 
 // 主菜单组件
-const MainMenu = React.memo(function MainMenu({
+const MainMenu = React.memo(function ({
 	config,
 	onConfigManagement,
 	onAddProject,
@@ -492,6 +492,9 @@ function ConfigManagement({
 }) {
 	const [mode, setMode] = useState<string>('menu');
 
+	// 使用useCallback缓存回调函数
+	const handleBackToMenu = useCallback(() => setMode('menu'), []);
+
 	const items = [
 		{label: '📁 查看项目配置列表', value: 'list'},
 		{label: '➕ 添加项目配置', value: 'add'},
@@ -548,7 +551,7 @@ function ConfigManagement({
 	};
 
 	if (mode === 'list') {
-		return <ProjectList config={config} onBack={() => setMode('menu')} />;
+		return <ProjectList config={config} onBack={handleBackToMenu} />;
 	}
 
 	if (mode === 'add') {
@@ -557,7 +560,7 @@ function ConfigManagement({
 				config={config}
 				onConfigChange={onConfigChange}
 				onError={onError}
-				onBack={() => setMode('menu')}
+				onBack={handleBackToMenu}
 			/>
 		);
 	}
@@ -567,7 +570,7 @@ function ConfigManagement({
 			<DeleteProject
 				config={config}
 				onConfigChange={onConfigChange}
-				onBack={() => setMode('menu')}
+				onBack={handleBackToMenu}
 			/>
 		);
 	}
@@ -577,7 +580,7 @@ function ConfigManagement({
 			<HookOperationStatus
 				type="regenerate"
 				config={config}
-				onComplete={() => setMode('menu')}
+				onComplete={handleBackToMenu}
 				onError={onError}
 			/>
 		);
@@ -588,7 +591,7 @@ function ConfigManagement({
 			<HookOperationStatus
 				type="clean"
 				config={config}
-				onComplete={() => setMode('menu')}
+				onComplete={handleBackToMenu}
 				onError={onError}
 			/>
 		);
@@ -664,7 +667,7 @@ function ProjectList({
 		}, 5000);
 
 		return () => clearTimeout(timer);
-	}, []);
+	}, [onBack]);
 
 	if (!showList) {
 		return null;
@@ -865,7 +868,7 @@ function AddProject({
 
 		// eslint-disable-next-line @typescript-eslint/no-empty-function
 		return () => {}; // 默认返回空的清理函数
-	}, [step]);
+	}, [step, onBack]);
 
 	if (processing || step === 'complete') {
 		return (
@@ -1010,7 +1013,7 @@ function DeleteProject({
 
 		// eslint-disable-next-line @typescript-eslint/no-empty-function
 		return () => {};
-	}, [hasNoConfig, deletedProject]);
+	}, [hasNoConfig, deletedProject, onBack]);
 
 	if (hasNoConfig) {
 		return (
@@ -1255,7 +1258,7 @@ function HookOperationStatus({
 
 		// eslint-disable-next-line @typescript-eslint/no-empty-function
 		return () => {};
-	}, [isProcessing, result.success]);
+	}, [isProcessing, result.success, onComplete]);
 
 	if (isProcessing) {
 		return (

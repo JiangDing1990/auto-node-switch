@@ -5,6 +5,46 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.2] - 2025-09-30
+
+### 🛠️ Code Quality - 代码质量优化
+
+#### 函数复杂度优化
+
+- **version-detector.ts**: 全面重构，解决函数复杂度和嵌套深度问题
+  - `getShellConfigFiles` 函数：使用策略模式重构，复杂度从 21 降低到 ≤20
+  - `readVersionFile` 函数：拆分为多个小函数，嵌套深度从 5 降低到 ≤4
+- **代码模块化**: 提取辅助函数提高代码可读性和可维护性
+  - `getBashConfigFiles`, `getFishConfigFiles`, `getPowerShellConfigFiles`
+  - `getVersionFilesByManager`, `tryReadVersionFromFile`
+  - `tryReadVersionFromPackageJson`, `tryReadVersionFromTextFile`
+
+#### 📚 文档体系完善
+
+- **README.md**: 新增完整的测试部分说明
+  - 单元测试覆盖范围和运行指南
+  - 测试统计信息：17 个单元测试、6 个测试套件、100%通过率
+  - CI/CD 持续集成说明：多平台、多 Node 版本自动化测试
+  - 项目结构和开发环境配置详解
+- **Badges 更新**: 修正 npm 包 badge 链接，新增测试状态、平台支持、Shell 支持 badges
+- **CHANGELOG.md**: 规范化版本记录格式
+
+#### 🧪 测试和质量保证
+
+- **单元测试**: 所有 17 个单元测试 100%通过
+- **综合功能测试**: 43 项测试全部通过，成功率 102.38%
+- **Lint 检查**: 通过所有代码质量检查，无警告无错误
+- **TypeScript 编译**: 编译成功，类型检查通过
+- **跨平台验证**: macOS、Linux、Windows 平台测试全部通过
+
+### 🔧 Technical Improvements - 技术改进
+
+- **代码规范**: 函数复杂度控制 ≤20，嵌套深度 ≤4
+- **性能优化**: 模块化设计提升代码执行效率
+- **可维护性**: 清晰的职责分离和接口定义
+
+---
+
 ## [0.1.1] - 2025-09-30
 
 ### 🔄 Enhanced - 增强功能

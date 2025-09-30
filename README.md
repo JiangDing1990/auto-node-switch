@@ -2,13 +2,14 @@
 
 🚀 **Node.js 智能版本管理工具** - 为不同项目自动切换对应的 Node.js 版本
 
-[![npm version](https://badge.fury.io/js/npm.svg)](https://badge.fury.io/js/npm)
-[![yarn version](https://badge.fury.io/js/yarn.svg)](https://badge.fury.io/js/yarn)
-[![pnpm version](https://badge.fury.io/js/pnpm.svg)](https://badge.fury.io/js/pnpm)
+[![npm version](https://badge.fury.io/js/auto-node-switch.svg)](https://badge.fury.io/js/auto-node-switch)
 [![Node.js Version](https://img.shields.io/badge/node-%3E%3D16-brightgreen.svg)](https://nodejs.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![GitHub Tests](https://github.com/jiangding1990/auto-node-switch/workflows/test/badge.svg)](https://github.com/jiangding1990/auto-node-switch/actions)
+[![Platform Support](https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-blue.svg)]()
+[![Shell Support](https://img.shields.io/badge/shell-bash%20%7C%20zsh%20%7C%20fish%20%7C%20powershell-green.svg)]()
 
-> **🎉 最新版本 v0.1.1** - 增强重复配置检测和完善文档体系！
+> **🎉 最新版本 v0.1.2** - 代码质量优化和文档体系完善！
 
 ## ✨ 功能特性
 
@@ -303,21 +304,134 @@ auto-node-switch info
 
 MIT License
 
-## 🏗️ 开发
+## 🧪 测试
+
+### 测试覆盖范围
+
+本项目包含全面的测试体系，确保所有功能模块的稳定性和可靠性：
+
+#### 🔬 单元测试
+
+- **配置管理模块**: 配置文件的创建、读取、保存和迁移功能
+- **安全验证模块**: 路径验证、版本验证、Shell 字符串转义等安全机制
+- **Hook 管理器**: Shell 配置文件的 Hook 添加、移除和管理功能
+- **集成测试**: 完整配置流程和配置更新流程的端到端测试
+- **错误处理**: SecurityError、ValidationError 等异常情况的处理验证
+
+#### 🚀 运行测试
 
 ```bash
+# 运行所有测试
+npm test
+
+# 仅运行单元测试
+npm run test:unit
+
+# 运行综合测试
+npm run test:comprehensive
+
+# 运行所有测试（包括性能测试）
+npm run test:all
+
+# 并行运行测试（提升速度）
+npm run test:parallel
+
+# 运行性能测试
+npm run test:performance
+```
+
+#### 📊 测试统计
+
+- **测试总数**: 17 个单元测试
+- **测试套件**: 6 个测试模块
+- **覆盖模块**: 配置管理、安全验证、Hook 管理、集成流程、错误处理
+- **通过率**: 100% (17/17)
+
+#### 🔍 测试特性
+
+- **环境隔离**: 使用独立的测试环境，不影响用户配置
+- **自动清理**: 测试完成后自动清理临时文件和配置
+- **跨平台**: 支持 macOS、Linux、Windows 平台的测试执行
+- **原生测试**: 基于 Node.js 原生测试 API，无需额外测试框架依赖
+
+### CI/CD 持续集成
+
+项目配置了 GitHub Actions 自动化测试：
+
+- **多平台测试**: Ubuntu、macOS、Windows
+- **多 Node 版本**: Node.js 16、18、20
+- **自动化流程**: 代码检查 → 构建 → 测试 → 发布
+
+## 🏗️ 开发
+
+### 开发环境配置
+
+```bash
+# 克隆项目
+git clone https://github.com/jiangding1990/auto-node-switch.git
+cd auto-node-switch
+
 # 安装依赖
 npm install
 
 # 开发模式（监听文件变化）
 npm run dev
 
-# 构建
+# 构建项目
 npm run build
 
 # 运行测试
 npm test
 
-# 代码检查
-npm run test
+# 代码检查和格式化
+npm run lint
+npm run lint:fix
+
+# 本地测试CLI
+npm run start
+# 或
+node dist/cli.js
+```
+
+### 项目结构
+
+```
+auto-node-switch/
+├── source/                 # TypeScript源代码
+│   ├── app.tsx            # React/Ink主应用组件
+│   ├── cli.ts             # CLI入口文件
+│   └── lib/               # 核心模块
+│       ├── config.ts      # 配置管理
+│       ├── security.ts    # 安全验证
+│       ├── hook-manager.ts # Hook管理器
+│       ├── version-detector.ts # 版本检测
+│       └── ascii-art.ts   # 终端艺术字
+├── dist/                  # 编译后的JavaScript代码
+├── tests/                 # 测试文件
+│   ├── unit-tests.mjs     # 单元测试
+│   ├── comprehensive-test.sh # 综合测试脚本
+│   └── run-tests.sh       # 测试运行脚本
+├── .github/workflows/     # GitHub Actions CI/CD
+└── package.json           # 项目配置
+```
+
+### 代码质量
+
+- **TypeScript**: 严格的类型检查，确保代码质量
+- **ESLint/XO**: 代码风格和质量检查
+- **Prettier**: 自动代码格式化
+- **复杂度控制**: 函数复杂度 ≤20，嵌套深度 ≤4
+- **安全编码**: 输入验证、Shell 转义、路径安全等
+
+### 发布流程
+
+```bash
+# 版本更新
+npm version patch|minor|major
+
+# 构建和测试
+npm run prepublishOnly
+
+# 发布到npm
+npm publish
 ```

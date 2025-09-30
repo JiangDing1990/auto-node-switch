@@ -136,10 +136,8 @@ export class HookManager {
 		);
 
 		// 支持旧的标记格式（向后兼容）
-		const oldRegex = new RegExp(
-			`# Node\\.js 工作目录环境切换[\\s\\S]*?# Node\\.js 工作目录环境切换 END\\n?`,
-			'g',
-		);
+		const oldRegex =
+			/# Node\.js 工作目录环境切换[\s\S]*?# Node\.js 工作目录环境切换 END\n?/g;
 
 		// 移除新格式的Hook
 		let result = content.replace(newRegex, '');

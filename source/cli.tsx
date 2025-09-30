@@ -127,6 +127,7 @@ if (args.length > 0) {
 			console.log('   • 更换支持Raw mode的终端应用');
 			process.exit(1);
 		}
+
 		throw error;
 	}
 }
@@ -164,17 +165,17 @@ async function handleAddCommand(
 			console.log(`📂 路径: ${validatedPath}`);
 			console.log(`💡 提示: 配置未发生变化，无需重复添加`);
 			return;
-		} else {
-			// 相同路径，不同版本
-			console.log(`🔄 检测到重复配置:`);
-			console.log(`📂 项目: ${projectName}`);
-			console.log(`📍 路径: ${validatedPath}`);
-			console.log(`🏷️ 原版本: Node ${existingConfig.version}`);
-			console.log(`🏷️ 新版本: Node ${validatedVersion}`);
-			console.log(`✅ 已覆盖原配置，更新版本为 Node ${validatedVersion}`);
-
-			config.workdirs[existingIndex]!.version = validatedVersion;
 		}
+
+		// 相同路径，不同版本
+		console.log(`🔄 检测到重复配置:`);
+		console.log(`📂 项目: ${projectName}`);
+		console.log(`📍 路径: ${validatedPath}`);
+		console.log(`🏷️ 原版本: Node ${existingConfig.version}`);
+		console.log(`🏷️ 新版本: Node ${validatedVersion}`);
+		console.log(`✅ 已覆盖原配置，更新版本为 Node ${validatedVersion}`);
+
+		config.workdirs[existingIndex]!.version = validatedVersion;
 	} else {
 		// 新项目配置
 		config.workdirs.push({dir: validatedPath, version: validatedVersion});

@@ -12,15 +12,6 @@ import {PowerShellConfig} from './powershell-config.js';
  * Shell配置注册表
  */
 export class ShellConfigRegistry {
-	private static readonly configs = new Map<string, ShellConfig>();
-
-	static {
-		// 注册所有支持的Shell配置
-		this.register(new BashShellConfig());
-		this.register(new FishShellConfig());
-		this.register(new PowerShellConfig());
-	}
-
 	/**
 	 * 注册Shell配置
 	 */
@@ -53,6 +44,15 @@ export class ShellConfigRegistry {
 	 */
 	static getConfig(name: string): ShellConfig | undefined {
 		return this.configs.get(name);
+	}
+
+	private static readonly configs = new Map<string, ShellConfig>();
+
+	static {
+		// 注册所有支持的Shell配置
+		this.register(new BashShellConfig());
+		this.register(new FishShellConfig());
+		this.register(new PowerShellConfig());
 	}
 }
 

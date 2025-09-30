@@ -115,119 +115,163 @@ export function getShellConfigFiles(shellType: string): string[] {
 	const HOME = os.homedir();
 	const currentOS = detectOS();
 
-	switch (shellType) {
-		case 'zsh': {
-			return [path.join(HOME, '.zshrc')];
-		}
+	// 使用策略模式减少复杂度
+	const shellHandlers = {
+		zsh: () => [path.join(HOME, '.zshrc')],
+		bash: () => getBashConfigFiles(HOME, currentOS),
+		fish: () => getFishConfigFiles(HOME),
+		powershell: () => getPowerShellConfigFiles(HOME, currentOS),
+		cmd: () => getCmdConfigFiles(currentOS),
+	};
 
-		case 'bash': {
-			if (currentOS === 'macos') {
-				const bashProfile = path.join(HOME, '.bash_profile');
-				const bashrc = path.join(HOME, '.bashrc');
+	const handler = shellHandlers[shellType as keyof typeof shellHandlers];
+	if (handler) {
+		return handler();
+	}
 
-				if (fs.existsSync(bashProfile)) {
-					return [bashProfile];
-				}
+	// 默认处理
+	return currentOS === 'windows' ? [] : [path.join(HOME, '.profile')];
+}
 
-				if (fs.existsSync(bashrc)) {
-					return [bashrc];
-				}
+/**
+ * 获取 Bash 配置文件路径的辅助函数
+ */
+function getBashConfigFiles(HOME: string, currentOS: string): string[] {
+	const candidates =
+		currentOS === 'macos'
+			? [path.join(HOME, '.bash_profile'), path.join(HOME, '.bashrc')]
+			: [path.join(HOME, '.bashrc'), path.join(HOME, '.bash_profile')];
 
-				return [bashProfile];
-			}
-
-			if (currentOS === 'windows') {
-				// Windows下的Git Bash配置
-				const bashrc = path.join(HOME, '.bashrc');
-				const bashProfile = path.join(HOME, '.bash_profile');
-
-				if (fs.existsSync(bashrc)) {
-					return [bashrc];
-				}
-
-				if (fs.existsSync(bashProfile)) {
-					return [bashProfile];
-				}
-
-				return [bashrc]; // 默认创建 .bashrc
-			}
-
-			const bashrc = path.join(HOME, '.bashrc');
-			const bashProfile = path.join(HOME, '.bash_profile');
-
-			if (fs.existsSync(bashrc)) {
-				return [bashrc];
-			}
-
-			if (fs.existsSync(bashProfile)) {
-				return [bashProfile];
-			}
-
-			return [bashrc];
-		}
-
-		case 'fish': {
-			const fishConfigDir = path.join(HOME, '.config', 'fish');
-			try {
-				fs.mkdirSync(fishConfigDir, {recursive: true});
-			} catch {
-				// 忽略创建失败
-			}
-
-			return [path.join(fishConfigDir, 'config.fish')];
-		}
-
-		case 'powershell': {
-			if (currentOS === 'windows') {
-				// PowerShell 配置文件路径
-				const documentsPath = process.env['USERPROFILE'] ?? HOME;
-				const profiles = [
-					path.join(
-						documentsPath,
-						'Documents',
-						'PowerShell',
-						'Microsoft.PowerShell_profile.ps1',
-					),
-					path.join(
-						documentsPath,
-						'Documents',
-						'WindowsPowerShell',
-						'Microsoft.PowerShell_profile.ps1',
-					),
-				];
-
-				// 检查哪个存在，或返回第一个作为默认
-				for (const profile of profiles) {
-					if (fs.existsSync(profile)) {
-						return [profile];
-					}
-				}
-
-				return [profiles[0]!]; // 返回 PowerShell Core 配置文件作为默认
-			}
-
-			break;
-		}
-
-		case 'cmd': {
-			if (currentOS === 'windows') {
-				// CMD 不支持配置文件，返回空数组
-				return [];
-			}
-
-			break;
-		}
-
-		default: {
-			if (currentOS === 'windows') {
-				return []; // Windows 上默认不支持
-			}
-
-			return [path.join(HOME, '.profile')];
+	for (const candidate of candidates) {
+		if (fs.existsSync(candidate)) {
+			return [candidate];
 		}
 	}
 
-	return []; // 默认返回空数组
+	return [candidates[0]!]; // 返回首选项作为默认
+}
+
+/**
+ * 获取 Fish 配置文件路径的辅助函数
+ */
+function getFishConfigFiles(HOME: string): string[] {
+	const fishConfigDir = path.join(HOME, '.config', 'fish');
+	try {
+		fs.mkdirSync(fishConfigDir, {recursive: true});
+	} catch {
+		// 忽略创建失败
+	}
+
+	return [path.join(fishConfigDir, 'config.fish')];
+}
+
+/**
+ * 获取 PowerShell 配置文件路径的辅助函数
+ */
+function getPowerShellConfigFiles(HOME: string, currentOS: string): string[] {
+	if (currentOS !== 'windows') {
+		return [];
+	}
+
+	const documentsPath = process.env['USERPROFILE'] ?? HOME;
+	const profiles = [
+		path.join(
+			documentsPath,
+			'Documents',
+			'PowerShell',
+			'Microsoft.PowerShell_profile.ps1',
+		),
+		path.join(
+			documentsPath,
+			'Documents',
+			'WindowsPowerShell',
+			'Microsoft.PowerShell_profile.ps1',
+		),
+	];
+
+	for (const profile of profiles) {
+		if (fs.existsSync(profile)) {
+			return [profile];
+		}
+	}
+
+	return [profiles[0]!]; // 返回 PowerShell Core 配置文件作为默认
+}
+
+/**
+ * 获取 CMD 配置文件路径的辅助函数
+ */
+function getCmdConfigFiles(currentOS: string): string[] {
+	// CMD 不支持配置文件
+	return currentOS === 'windows' ? [] : [];
+}
+
+/**
+ * 获取版本文件优先级列表
+ */
+function getVersionFilesByManager(manager: string): string[] {
+	if (manager === 'n') {
+		return ['.node-version', '.nvmrc', 'package.json']; // n 用户优先 .node-version
+	}
+
+	if (manager === 'nvm-windows' || manager === 'nvs') {
+		return ['.nvmrc', '.node-version', 'package.json']; // Windows版本管理器优先 .nvmrc
+	}
+
+	return ['.nvmrc', '.node-version', 'package.json']; // 默认优先 .nvmrc
+}
+
+/**
+ * 尝试从单个文件读取版本
+ */
+function tryReadVersionFromFile(
+	filePath: string,
+	fileName: string,
+): string | undefined {
+	if (!fs.existsSync(filePath)) {
+		return undefined;
+	}
+
+	if (fileName === 'package.json') {
+		return tryReadVersionFromPackageJson(filePath);
+	}
+
+	return tryReadVersionFromTextFile(filePath);
+}
+
+/**
+ * 从 package.json 读取版本
+ */
+function tryReadVersionFromPackageJson(filePath: string): string | undefined {
+	try {
+		const packageJson = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+		const nodeVersion = packageJson.engines?.node;
+
+		if (!nodeVersion) {
+			return undefined;
+		}
+
+		return parseEngineVersion(nodeVersion);
+	} catch {
+		return undefined;
+	}
+}
+
+/**
+ * 从文本文件读取版本
+ */
+function tryReadVersionFromTextFile(filePath: string): string | undefined {
+	try {
+		const content = fs.readFileSync(filePath, 'utf8').trim();
+
+		if (!content) {
+			return undefined;
+		}
+
+		return content.replace(/^v/, ''); // 移除 v 前缀
+	} catch {
+		return undefined;
+	}
 }
 
 /**
@@ -237,38 +281,14 @@ export function readVersionFile(
 	projectDir: string,
 	manager = 'nvm',
 ): string | undefined {
-	// 根据版本管理器类型调整优先级
-	let versionFiles: string[];
-	if (manager === 'n') {
-		versionFiles = ['.node-version', '.nvmrc', 'package.json']; // n 用户优先 .node-version
-	} else if (manager === 'nvm-windows' || manager === 'nvs') {
-		versionFiles = ['.nvmrc', '.node-version', 'package.json']; // Windows版本管理器优先 .nvmrc
-	} else {
-		versionFiles = ['.nvmrc', '.node-version', 'package.json']; // 默认优先 .nvmrc
-	}
+	const versionFiles = getVersionFilesByManager(manager);
 
 	for (const fileName of versionFiles) {
 		const filePath = path.join(projectDir, fileName);
+		const version = tryReadVersionFromFile(filePath, fileName);
 
-		try {
-			if (fs.existsSync(filePath)) {
-				if (fileName === 'package.json') {
-					const packageJson = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-					const nodeVersion = packageJson.engines?.node;
-					if (nodeVersion) {
-						// 改进的 package.json 版本解析，支持更多格式
-						const version = parseEngineVersion(nodeVersion);
-						if (version) return version;
-					}
-				} else {
-					const content = fs.readFileSync(filePath, 'utf8').trim();
-					if (content) {
-						return content.replace(/^v/, ''); // 移除 v 前缀
-					}
-				}
-			}
-		} catch {
-			// 忽略读取错误，继续尝试下一个文件
+		if (version) {
+			return version;
 		}
 	}
 

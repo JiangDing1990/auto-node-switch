@@ -17,7 +17,7 @@ import {test, describe, before, after} from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
-import {execSync} from 'node:child_process';
+import process from 'node:process';
 import {fileURLToPath} from 'node:url';
 
 // 获取项目根目录

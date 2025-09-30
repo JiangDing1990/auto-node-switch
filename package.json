@@ -1,6 +1,6 @@
 {
 	"name": "auto-node-switch",
-	"version": "0.1.1",
+	"version": "0.1.2",
 	"description": "🚀 Node.js 智能版本管理工具 - 为不同项目自动切换对应的 Node.js 版本",
 	"license": "MIT",
 	"author": {
@@ -105,7 +105,9 @@
 	"xo": {
 		"extends": "xo-react",
 		"prettier": true,
-		"ignores": [],
+		"ignores": [
+			"tests/**"
+		],
 		"rules": {
 			"react/prop-types": "off",
 			"unicorn/expiring-todo-comments": "off",
