@@ -81,7 +81,7 @@
 	"devDependencies": {
 		"@eslint/js": "^9.36.0",
 		"@sindresorhus/tsconfig": "^3.0.1",
-		"@types/node": "^24.6.0",
+		"@types/node": "^20.14.0",
 		"@types/react": "^18.0.32",
 		"@typescript-eslint/eslint-plugin": "^8.45.0",
 		"@typescript-eslint/parser": "^8.45.0",
@@ -94,7 +94,8 @@
 		"ink-testing-library": "^3.0.0",
 		"prettier": "^2.8.7",
 		"ts-node": "^10.9.1",
-		"typescript": "^5.0.3"
+		"typescript": "^5.0.3",
+		"undici-types": "^6.20.0"
 	},
 	"ava": {
 		"extensions": {
