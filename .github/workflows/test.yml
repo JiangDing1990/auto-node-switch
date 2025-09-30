@@ -33,8 +33,11 @@ jobs:
         run: npm cache clean --force
 
       - name: Install dependencies
-        run: npm ci --no-audit --no-fund --no-audit --no-fund --prefer-offline
+        run: npm ci --no-audit --no-fund --prefer-offline
         timeout-minutes: 10
+
+      - name: Verify TypeScript installation
+        run: npx tsc --version
 
       - name: Build project
         run: npm run build
