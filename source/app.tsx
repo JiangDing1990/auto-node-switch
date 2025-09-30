@@ -1,4 +1,5 @@
 import process from 'node:process';
+import path from 'node:path';
 import {execSync} from 'node:child_process';
 import React, {useState, useEffect, useMemo, useCallback} from 'react';
 import {Box, Text, useInput} from 'ink';
@@ -766,12 +767,33 @@ function AddProject({
 
 			// 检查是否已存在
 			const existingIndex = newConfig.workdirs.findIndex(
-				w => w.dir === projectDir,
+				w => path.resolve(w.dir) === projectDir,
 			);
+
 			if (existingIndex >= 0) {
-				newConfig.workdirs[existingIndex]!.version = validatedVersion;
+				const existingConfig = newConfig.workdirs[existingIndex]!;
+				const projectName = path.basename(projectDir);
+
+				if (existingConfig.version === validatedVersion) {
+					// 相同路径和版本，显示提示信息
+					console.log(`ℹ️ 项目 ${projectName} 已配置相同版本 Node ${validatedVersion}`);
+					console.log(`📂 路径: ${projectDir}`);
+					console.log(`💡 提示: 配置未发生变化，跳过重复添加`);
+				} else {
+					// 相同路径，不同版本，显示覆盖信息
+					console.log(`🔄 检测到重复配置:`);
+					console.log(`📂 项目: ${projectName}`);
+					console.log(`📍 路径: ${projectDir}`);
+					console.log(`🏷️ 原版本: Node ${existingConfig.version}`);
+					console.log(`🏷️ 新版本: Node ${validatedVersion}`);
+					console.log(`✅ 已覆盖原配置，更新版本为 Node ${validatedVersion}`);
+
+					newConfig.workdirs[existingIndex]!.version = validatedVersion;
+				}
 			} else {
+				// 新项目配置
 				newConfig.workdirs.push({dir: projectDir, version: validatedVersion});
+				console.log(`✅ 已添加项目 ${path.basename(projectDir)} → Node ${validatedVersion}`);
 			}
 
 			onConfigChange(newConfig);

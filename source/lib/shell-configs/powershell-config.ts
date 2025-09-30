@@ -162,6 +162,168 @@ export class PowerShellConfig implements ShellConfig {
         & npm.cmd @Arguments
         return $LASTEXITCODE
     }
+}
+
+function yarn {
+    param([Parameter(ValueFromRemainingArguments)]$Arguments)
+
+    $WORKDIRS = '{{escapedDirsJson}}'
+    $TARGET_VERSION = ""
+    $PREVIOUS_VERSION = ""
+
+    # 获取当前 Node 版本
+    if (Get-Command node -ErrorAction SilentlyContinue) {
+        $PREVIOUS_VERSION = (node -v 2>$null) -replace '^v', ''
+    }
+
+    # 检查是否在工作目录中
+    if ($WORKDIRS) {
+        try {
+            $WorkdirData = $WORKDIRS | ConvertFrom-Json
+            $CurrentDir = Get-Location | Select-Object -ExpandProperty Path
+
+            # 查找最佳匹配的工作目录
+            $BestMatch = $null
+            $BestLength = -1
+
+            foreach ($workdir in $WorkdirData) {
+                $workPath = $workdir.dir
+                if ($CurrentDir -eq $workPath -or $CurrentDir.StartsWith($workPath + [System.IO.Path]::DirectorySeparatorChar)) {
+                    if ($workPath.Length -gt $BestLength) {
+                        $BestMatch = $workdir
+                        $BestLength = $workPath.Length
+                    }
+                }
+            }
+
+            if ($BestMatch) {
+                $TARGET_VERSION = $BestMatch.version
+                $WORKDIR_NAME = Split-Path $BestMatch.dir -Leaf
+                Write-Host "📁 检测到工作目录: $WORKDIR_NAME" -ForegroundColor Green
+            }
+        }
+        catch {
+            # JSON解析失败，忽略错误
+        }
+    }
+
+    # 切换版本
+    if ($TARGET_VERSION -and $TARGET_VERSION -ne $PREVIOUS_VERSION) {
+        try {
+            Write-Host "🔄 切换 Node 版本: $PREVIOUS_VERSION -> $TARGET_VERSION" -ForegroundColor Yellow
+
+            nvm use $TARGET_VERSION 2>$null
+            if ($LASTEXITCODE -ne 0) {
+                Write-Host "⚠️ 版本 $TARGET_VERSION 不存在，尝试安装..." -ForegroundColor Yellow
+                nvm install $TARGET_VERSION 2>$null
+                nvm use $TARGET_VERSION 2>$null
+            }
+
+            # 执行 yarn 命令
+            & yarn.cmd @Arguments
+            $ExitCode = $LASTEXITCODE
+
+            # 恢复版本
+            if ($PREVIOUS_VERSION) {
+                Write-Host "📦 执行完成，恢复到之前的 Node.js 版本..." -ForegroundColor Green
+                Write-Host "↩️ 恢复 Node 版本: $TARGET_VERSION -> $PREVIOUS_VERSION" -ForegroundColor Cyan
+                nvm use $PREVIOUS_VERSION 2>$null
+            }
+
+            return $ExitCode
+        }
+        catch {
+            Write-Host "❌ 版本切换失败: $_" -ForegroundColor Red
+            & yarn.cmd @Arguments
+            return $LASTEXITCODE
+        }
+    }
+    else {
+        # 直接执行 yarn
+        & yarn.cmd @Arguments
+        return $LASTEXITCODE
+    }
+}
+
+function pnpm {
+    param([Parameter(ValueFromRemainingArguments)]$Arguments)
+
+    $WORKDIRS = '{{escapedDirsJson}}'
+    $TARGET_VERSION = ""
+    $PREVIOUS_VERSION = ""
+
+    # 获取当前 Node 版本
+    if (Get-Command node -ErrorAction SilentlyContinue) {
+        $PREVIOUS_VERSION = (node -v 2>$null) -replace '^v', ''
+    }
+
+    # 检查是否在工作目录中
+    if ($WORKDIRS) {
+        try {
+            $WorkdirData = $WORKDIRS | ConvertFrom-Json
+            $CurrentDir = Get-Location | Select-Object -ExpandProperty Path
+
+            # 查找最佳匹配的工作目录
+            $BestMatch = $null
+            $BestLength = -1
+
+            foreach ($workdir in $WorkdirData) {
+                $workPath = $workdir.dir
+                if ($CurrentDir -eq $workPath -or $CurrentDir.StartsWith($workPath + [System.IO.Path]::DirectorySeparatorChar)) {
+                    if ($workPath.Length -gt $BestLength) {
+                        $BestMatch = $workdir
+                        $BestLength = $workPath.Length
+                    }
+                }
+            }
+
+            if ($BestMatch) {
+                $TARGET_VERSION = $BestMatch.version
+                $WORKDIR_NAME = Split-Path $BestMatch.dir -Leaf
+                Write-Host "📁 检测到工作目录: $WORKDIR_NAME" -ForegroundColor Green
+            }
+        }
+        catch {
+            # JSON解析失败，忽略错误
+        }
+    }
+
+    # 切换版本
+    if ($TARGET_VERSION -and $TARGET_VERSION -ne $PREVIOUS_VERSION) {
+        try {
+            Write-Host "🔄 切换 Node 版本: $PREVIOUS_VERSION -> $TARGET_VERSION" -ForegroundColor Yellow
+
+            nvm use $TARGET_VERSION 2>$null
+            if ($LASTEXITCODE -ne 0) {
+                Write-Host "⚠️ 版本 $TARGET_VERSION 不存在，尝试安装..." -ForegroundColor Yellow
+                nvm install $TARGET_VERSION 2>$null
+                nvm use $TARGET_VERSION 2>$null
+            }
+
+            # 执行 pnpm 命令
+            & pnpm.cmd @Arguments
+            $ExitCode = $LASTEXITCODE
+
+            # 恢复版本
+            if ($PREVIOUS_VERSION) {
+                Write-Host "📦 执行完成，恢复到之前的 Node.js 版本..." -ForegroundColor Green
+                Write-Host "↩️ 恢复 Node 版本: $TARGET_VERSION -> $PREVIOUS_VERSION" -ForegroundColor Cyan
+                nvm use $PREVIOUS_VERSION 2>$null
+            }
+
+            return $ExitCode
+        }
+        catch {
+            Write-Host "❌ 版本切换失败: $_" -ForegroundColor Red
+            & pnpm.cmd @Arguments
+            return $LASTEXITCODE
+        }
+    }
+    else {
+        # 直接执行 pnpm
+        & pnpm.cmd @Arguments
+        return $LASTEXITCODE
+    }
 }`,
 			fnm: `function npm {
     param([Parameter(ValueFromRemainingArguments)]$Arguments)
@@ -242,6 +404,168 @@ export class PowerShellConfig implements ShellConfig {
         & npm.cmd @Arguments
         return $LASTEXITCODE
     }
+}
+
+function yarn {
+    param([Parameter(ValueFromRemainingArguments)]$Arguments)
+
+    $WORKDIRS = '{{escapedDirsJson}}'
+    $TARGET_VERSION = ""
+    $PREVIOUS_VERSION = ""
+
+    # 获取当前 Node 版本
+    if (Get-Command node -ErrorAction SilentlyContinue) {
+        $PREVIOUS_VERSION = (node -v 2>$null) -replace '^v', ''
+    }
+
+    # 检查是否在工作目录中
+    if ($WORKDIRS) {
+        try {
+            $WorkdirData = $WORKDIRS | ConvertFrom-Json
+            $CurrentDir = Get-Location | Select-Object -ExpandProperty Path
+
+            # 查找最佳匹配的工作目录
+            $BestMatch = $null
+            $BestLength = -1
+
+            foreach ($workdir in $WorkdirData) {
+                $workPath = $workdir.dir
+                if ($CurrentDir -eq $workPath -or $CurrentDir.StartsWith($workPath + [System.IO.Path]::DirectorySeparatorChar)) {
+                    if ($workPath.Length -gt $BestLength) {
+                        $BestMatch = $workdir
+                        $BestLength = $workPath.Length
+                    }
+                }
+            }
+
+            if ($BestMatch) {
+                $TARGET_VERSION = $BestMatch.version
+                $WORKDIR_NAME = Split-Path $BestMatch.dir -Leaf
+                Write-Host "📁 检测到工作目录: $WORKDIR_NAME" -ForegroundColor Green
+            }
+        }
+        catch {
+            # JSON解析失败，忽略错误
+        }
+    }
+
+    # 切换版本
+    if ($TARGET_VERSION -and $TARGET_VERSION -ne $PREVIOUS_VERSION) {
+        try {
+            Write-Host "🔄 切换 Node 版本: $PREVIOUS_VERSION -> $TARGET_VERSION" -ForegroundColor Yellow
+
+            nvm use $TARGET_VERSION 2>$null
+            if ($LASTEXITCODE -ne 0) {
+                Write-Host "⚠️ 版本 $TARGET_VERSION 不存在，尝试安装..." -ForegroundColor Yellow
+                nvm install $TARGET_VERSION 2>$null
+                nvm use $TARGET_VERSION 2>$null
+            }
+
+            # 执行 yarn 命令
+            & yarn.cmd @Arguments
+            $ExitCode = $LASTEXITCODE
+
+            # 恢复版本
+            if ($PREVIOUS_VERSION) {
+                Write-Host "📦 执行完成，恢复到之前的 Node.js 版本..." -ForegroundColor Green
+                Write-Host "↩️ 恢复 Node 版本: $TARGET_VERSION -> $PREVIOUS_VERSION" -ForegroundColor Cyan
+                nvm use $PREVIOUS_VERSION 2>$null
+            }
+
+            return $ExitCode
+        }
+        catch {
+            Write-Host "❌ 版本切换失败: $_" -ForegroundColor Red
+            & yarn.cmd @Arguments
+            return $LASTEXITCODE
+        }
+    }
+    else {
+        # 直接执行 yarn
+        & yarn.cmd @Arguments
+        return $LASTEXITCODE
+    }
+}
+
+function pnpm {
+    param([Parameter(ValueFromRemainingArguments)]$Arguments)
+
+    $WORKDIRS = '{{escapedDirsJson}}'
+    $TARGET_VERSION = ""
+    $PREVIOUS_VERSION = ""
+
+    # 获取当前 Node 版本
+    if (Get-Command node -ErrorAction SilentlyContinue) {
+        $PREVIOUS_VERSION = (node -v 2>$null) -replace '^v', ''
+    }
+
+    # 检查是否在工作目录中
+    if ($WORKDIRS) {
+        try {
+            $WorkdirData = $WORKDIRS | ConvertFrom-Json
+            $CurrentDir = Get-Location | Select-Object -ExpandProperty Path
+
+            # 查找最佳匹配的工作目录
+            $BestMatch = $null
+            $BestLength = -1
+
+            foreach ($workdir in $WorkdirData) {
+                $workPath = $workdir.dir
+                if ($CurrentDir -eq $workPath -or $CurrentDir.StartsWith($workPath + [System.IO.Path]::DirectorySeparatorChar)) {
+                    if ($workPath.Length -gt $BestLength) {
+                        $BestMatch = $workdir
+                        $BestLength = $workPath.Length
+                    }
+                }
+            }
+
+            if ($BestMatch) {
+                $TARGET_VERSION = $BestMatch.version
+                $WORKDIR_NAME = Split-Path $BestMatch.dir -Leaf
+                Write-Host "📁 检测到工作目录: $WORKDIR_NAME" -ForegroundColor Green
+            }
+        }
+        catch {
+            # JSON解析失败，忽略错误
+        }
+    }
+
+    # 切换版本
+    if ($TARGET_VERSION -and $TARGET_VERSION -ne $PREVIOUS_VERSION) {
+        try {
+            Write-Host "🔄 切换 Node 版本: $PREVIOUS_VERSION -> $TARGET_VERSION" -ForegroundColor Yellow
+
+            nvm use $TARGET_VERSION 2>$null
+            if ($LASTEXITCODE -ne 0) {
+                Write-Host "⚠️ 版本 $TARGET_VERSION 不存在，尝试安装..." -ForegroundColor Yellow
+                nvm install $TARGET_VERSION 2>$null
+                nvm use $TARGET_VERSION 2>$null
+            }
+
+            # 执行 pnpm 命令
+            & pnpm.cmd @Arguments
+            $ExitCode = $LASTEXITCODE
+
+            # 恢复版本
+            if ($PREVIOUS_VERSION) {
+                Write-Host "📦 执行完成，恢复到之前的 Node.js 版本..." -ForegroundColor Green
+                Write-Host "↩️ 恢复 Node 版本: $TARGET_VERSION -> $PREVIOUS_VERSION" -ForegroundColor Cyan
+                nvm use $PREVIOUS_VERSION 2>$null
+            }
+
+            return $ExitCode
+        }
+        catch {
+            Write-Host "❌ 版本切换失败: $_" -ForegroundColor Red
+            & pnpm.cmd @Arguments
+            return $LASTEXITCODE
+        }
+    }
+    else {
+        # 直接执行 pnpm
+        & pnpm.cmd @Arguments
+        return $LASTEXITCODE
+    }
 }`,
 			nvs: `function npm {
     param([Parameter(ValueFromRemainingArguments)]$Arguments)
@@ -320,6 +644,168 @@ export class PowerShellConfig implements ShellConfig {
     else {
         # 直接执行 npm
         & npm.cmd @Arguments
+        return $LASTEXITCODE
+    }
+}
+
+function yarn {
+    param([Parameter(ValueFromRemainingArguments)]$Arguments)
+
+    $WORKDIRS = '{{escapedDirsJson}}'
+    $TARGET_VERSION = ""
+    $PREVIOUS_VERSION = ""
+
+    # 获取当前 Node 版本
+    if (Get-Command node -ErrorAction SilentlyContinue) {
+        $PREVIOUS_VERSION = (node -v 2>$null) -replace '^v', ''
+    }
+
+    # 检查是否在工作目录中
+    if ($WORKDIRS) {
+        try {
+            $WorkdirData = $WORKDIRS | ConvertFrom-Json
+            $CurrentDir = Get-Location | Select-Object -ExpandProperty Path
+
+            # 查找最佳匹配的工作目录
+            $BestMatch = $null
+            $BestLength = -1
+
+            foreach ($workdir in $WorkdirData) {
+                $workPath = $workdir.dir
+                if ($CurrentDir -eq $workPath -or $CurrentDir.StartsWith($workPath + [System.IO.Path]::DirectorySeparatorChar)) {
+                    if ($workPath.Length -gt $BestLength) {
+                        $BestMatch = $workdir
+                        $BestLength = $workPath.Length
+                    }
+                }
+            }
+
+            if ($BestMatch) {
+                $TARGET_VERSION = $BestMatch.version
+                $WORKDIR_NAME = Split-Path $BestMatch.dir -Leaf
+                Write-Host "📁 检测到工作目录: $WORKDIR_NAME" -ForegroundColor Green
+            }
+        }
+        catch {
+            # JSON解析失败，忽略错误
+        }
+    }
+
+    # 切换版本
+    if ($TARGET_VERSION -and $TARGET_VERSION -ne $PREVIOUS_VERSION) {
+        try {
+            Write-Host "🔄 切换 Node 版本: $PREVIOUS_VERSION -> $TARGET_VERSION" -ForegroundColor Yellow
+
+            nvm use $TARGET_VERSION 2>$null
+            if ($LASTEXITCODE -ne 0) {
+                Write-Host "⚠️ 版本 $TARGET_VERSION 不存在，尝试安装..." -ForegroundColor Yellow
+                nvm install $TARGET_VERSION 2>$null
+                nvm use $TARGET_VERSION 2>$null
+            }
+
+            # 执行 yarn 命令
+            & yarn.cmd @Arguments
+            $ExitCode = $LASTEXITCODE
+
+            # 恢复版本
+            if ($PREVIOUS_VERSION) {
+                Write-Host "📦 执行完成，恢复到之前的 Node.js 版本..." -ForegroundColor Green
+                Write-Host "↩️ 恢复 Node 版本: $TARGET_VERSION -> $PREVIOUS_VERSION" -ForegroundColor Cyan
+                nvm use $PREVIOUS_VERSION 2>$null
+            }
+
+            return $ExitCode
+        }
+        catch {
+            Write-Host "❌ 版本切换失败: $_" -ForegroundColor Red
+            & yarn.cmd @Arguments
+            return $LASTEXITCODE
+        }
+    }
+    else {
+        # 直接执行 yarn
+        & yarn.cmd @Arguments
+        return $LASTEXITCODE
+    }
+}
+
+function pnpm {
+    param([Parameter(ValueFromRemainingArguments)]$Arguments)
+
+    $WORKDIRS = '{{escapedDirsJson}}'
+    $TARGET_VERSION = ""
+    $PREVIOUS_VERSION = ""
+
+    # 获取当前 Node 版本
+    if (Get-Command node -ErrorAction SilentlyContinue) {
+        $PREVIOUS_VERSION = (node -v 2>$null) -replace '^v', ''
+    }
+
+    # 检查是否在工作目录中
+    if ($WORKDIRS) {
+        try {
+            $WorkdirData = $WORKDIRS | ConvertFrom-Json
+            $CurrentDir = Get-Location | Select-Object -ExpandProperty Path
+
+            # 查找最佳匹配的工作目录
+            $BestMatch = $null
+            $BestLength = -1
+
+            foreach ($workdir in $WorkdirData) {
+                $workPath = $workdir.dir
+                if ($CurrentDir -eq $workPath -or $CurrentDir.StartsWith($workPath + [System.IO.Path]::DirectorySeparatorChar)) {
+                    if ($workPath.Length -gt $BestLength) {
+                        $BestMatch = $workdir
+                        $BestLength = $workPath.Length
+                    }
+                }
+            }
+
+            if ($BestMatch) {
+                $TARGET_VERSION = $BestMatch.version
+                $WORKDIR_NAME = Split-Path $BestMatch.dir -Leaf
+                Write-Host "📁 检测到工作目录: $WORKDIR_NAME" -ForegroundColor Green
+            }
+        }
+        catch {
+            # JSON解析失败，忽略错误
+        }
+    }
+
+    # 切换版本
+    if ($TARGET_VERSION -and $TARGET_VERSION -ne $PREVIOUS_VERSION) {
+        try {
+            Write-Host "🔄 切换 Node 版本: $PREVIOUS_VERSION -> $TARGET_VERSION" -ForegroundColor Yellow
+
+            nvm use $TARGET_VERSION 2>$null
+            if ($LASTEXITCODE -ne 0) {
+                Write-Host "⚠️ 版本 $TARGET_VERSION 不存在，尝试安装..." -ForegroundColor Yellow
+                nvm install $TARGET_VERSION 2>$null
+                nvm use $TARGET_VERSION 2>$null
+            }
+
+            # 执行 pnpm 命令
+            & pnpm.cmd @Arguments
+            $ExitCode = $LASTEXITCODE
+
+            # 恢复版本
+            if ($PREVIOUS_VERSION) {
+                Write-Host "📦 执行完成，恢复到之前的 Node.js 版本..." -ForegroundColor Green
+                Write-Host "↩️ 恢复 Node 版本: $TARGET_VERSION -> $PREVIOUS_VERSION" -ForegroundColor Cyan
+                nvm use $PREVIOUS_VERSION 2>$null
+            }
+
+            return $ExitCode
+        }
+        catch {
+            Write-Host "❌ 版本切换失败: $_" -ForegroundColor Red
+            & pnpm.cmd @Arguments
+            return $LASTEXITCODE
+        }
+    }
+    else {
+        # 直接执行 pnpm
+        & pnpm.cmd @Arguments
         return $LASTEXITCODE
     }
 }`,

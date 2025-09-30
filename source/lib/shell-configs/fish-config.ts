@@ -146,6 +146,128 @@ export class FishShellConfig implements ShellConfig {
     end
     
     return $exit_code
+end
+
+function yarn
+    set WORKDIRS '{{escapedDirsJson}}'
+    set TARGET_VERSION ""
+    set PREVIOUS_VERSION ""
+
+    # 获取当前 Node 版本
+    if command -v node >/dev/null 2>&1
+        set PREVIOUS_VERSION (node -v 2>/dev/null | sed 's/^v//')
+    end
+
+    # 检查是否在工作目录中 (Fish语法，使用纯Shell解析避免Python依赖)
+    if test -n "$WORKDIRS"
+        set WORKDIR_INFO ""
+        set CURRENT_DIR (pwd)
+
+        # 使用Fish的string命令解析JSON
+        set work_dir (echo "$WORKDIRS" | string match -r '"dir":"([^"]*)"' | tail -1)
+        set work_version (echo "$WORKDIRS" | string match -r '"version":"([^"]*)"' | tail -1)
+
+        # 检查当前目录是否匹配工作目录
+        if test "$CURRENT_DIR" = "$work_dir"; or string match -q "$work_dir/*" "$CURRENT_DIR"
+            set WORKDIR_INFO "$work_version|"(basename "$work_dir")
+        end
+
+        if test -n "$WORKDIR_INFO"
+            set TARGET_VERSION (echo $WORKDIR_INFO | cut -d'|' -f1)
+            set WORKDIR_NAME (echo $WORKDIR_INFO | cut -d'|' -f2)
+            echo "📁 检测到工作目录: $WORKDIR_NAME"
+        end
+    end
+
+    # 切换版本
+    if test -n "$TARGET_VERSION" -a "$TARGET_VERSION" != "$PREVIOUS_VERSION"
+        echo "🔄 切换 Node 版本: $PREVIOUS_VERSION -> $TARGET_VERSION"
+
+        # Fish中使用bash来运行nvm命令（因为nvm是bash脚本）
+        bash -c "source '{{nvmPath}}' >/dev/null 2>&1; nvm use '$TARGET_VERSION' >/dev/null 2>&1"
+        if test $status -ne 0
+            echo "⚠️ 版本 $TARGET_VERSION 不存在，尝试安装..."
+            bash -c "source '{{nvmPath}}' >/dev/null 2>&1; nvm install '$TARGET_VERSION' >/dev/null 2>&1; nvm use '$TARGET_VERSION' >/dev/null 2>&1"
+        end
+
+        # 执行yarn命令
+        command yarn $argv
+        set exit_code $status
+
+        # 恢复到之前的版本
+        if test -n "$PREVIOUS_VERSION"
+            echo "📦 执行完成，恢复到之前的 Node.js 版本..."
+            echo "↩️ 恢复 Node 版本: $TARGET_VERSION -> $PREVIOUS_VERSION"
+            bash -c "source '{{nvmPath}}' >/dev/null 2>&1; nvm use '$PREVIOUS_VERSION' >/dev/null 2>&1"
+        end
+    else
+        # 直接执行yarn命令
+        command yarn $argv
+        set exit_code $status
+    end
+
+    return $exit_code
+end
+
+function pnpm
+    set WORKDIRS '{{escapedDirsJson}}'
+    set TARGET_VERSION ""
+    set PREVIOUS_VERSION ""
+
+    # 获取当前 Node 版本
+    if command -v node >/dev/null 2>&1
+        set PREVIOUS_VERSION (node -v 2>/dev/null | sed 's/^v//')
+    end
+
+    # 检查是否在工作目录中 (Fish语法，使用纯Shell解析避免Python依赖)
+    if test -n "$WORKDIRS"
+        set WORKDIR_INFO ""
+        set CURRENT_DIR (pwd)
+
+        # 使用Fish的string命令解析JSON
+        set work_dir (echo "$WORKDIRS" | string match -r '"dir":"([^"]*)"' | tail -1)
+        set work_version (echo "$WORKDIRS" | string match -r '"version":"([^"]*)"' | tail -1)
+
+        # 检查当前目录是否匹配工作目录
+        if test "$CURRENT_DIR" = "$work_dir"; or string match -q "$work_dir/*" "$CURRENT_DIR"
+            set WORKDIR_INFO "$work_version|"(basename "$work_dir")
+        end
+
+        if test -n "$WORKDIR_INFO"
+            set TARGET_VERSION (echo $WORKDIR_INFO | cut -d'|' -f1)
+            set WORKDIR_NAME (echo $WORKDIR_INFO | cut -d'|' -f2)
+            echo "📁 检测到工作目录: $WORKDIR_NAME"
+        end
+    end
+
+    # 切换版本
+    if test -n "$TARGET_VERSION" -a "$TARGET_VERSION" != "$PREVIOUS_VERSION"
+        echo "🔄 切换 Node 版本: $PREVIOUS_VERSION -> $TARGET_VERSION"
+
+        # Fish中使用bash来运行nvm命令（因为nvm是bash脚本）
+        bash -c "source '{{nvmPath}}' >/dev/null 2>&1; nvm use '$TARGET_VERSION' >/dev/null 2>&1"
+        if test $status -ne 0
+            echo "⚠️ 版本 $TARGET_VERSION 不存在，尝试安装..."
+            bash -c "source '{{nvmPath}}' >/dev/null 2>&1; nvm install '$TARGET_VERSION' >/dev/null 2>&1; nvm use '$TARGET_VERSION' >/dev/null 2>&1"
+        end
+
+        # 执行pnpm命令
+        command pnpm $argv
+        set exit_code $status
+
+        # 恢复到之前的版本
+        if test -n "$PREVIOUS_VERSION"
+            echo "📦 执行完成，恢复到之前的 Node.js 版本..."
+            echo "↩️ 恢复 Node 版本: $TARGET_VERSION -> $PREVIOUS_VERSION"
+            bash -c "source '{{nvmPath}}' >/dev/null 2>&1; nvm use '$PREVIOUS_VERSION' >/dev/null 2>&1"
+        end
+    else
+        # 直接执行pnpm命令
+        command pnpm $argv
+        set exit_code $status
+    end
+
+    return $exit_code
 end`,
 			n: `function npm
     set WORKDIRS '{{escapedDirsJson}}'
@@ -207,6 +329,128 @@ end`,
     end
     
     return $exit_code
+end
+
+function yarn
+    set WORKDIRS '{{escapedDirsJson}}'
+    set TARGET_VERSION ""
+    set PREVIOUS_VERSION ""
+
+    # 获取当前 Node 版本
+    if command -v node >/dev/null 2>&1
+        set PREVIOUS_VERSION (node -v 2>/dev/null | sed 's/^v//')
+    end
+
+    # 检查是否在工作目录中 (Fish语法，使用纯Shell解析避免Python依赖)
+    if test -n "$WORKDIRS"
+        set WORKDIR_INFO ""
+        set CURRENT_DIR (pwd)
+
+        # 使用Fish的string命令解析JSON
+        set work_dir (echo "$WORKDIRS" | string match -r '"dir":"([^"]*)"' | tail -1)
+        set work_version (echo "$WORKDIRS" | string match -r '"version":"([^"]*)"' | tail -1)
+
+        # 检查当前目录是否匹配工作目录
+        if test "$CURRENT_DIR" = "$work_dir"; or string match -q "$work_dir/*" "$CURRENT_DIR"
+            set WORKDIR_INFO "$work_version|"(basename "$work_dir")
+        end
+
+        if test -n "$WORKDIR_INFO"
+            set TARGET_VERSION (echo $WORKDIR_INFO | cut -d'|' -f1)
+            set WORKDIR_NAME (echo $WORKDIR_INFO | cut -d'|' -f2)
+            echo "📁 检测到工作目录: $WORKDIR_NAME"
+        end
+    end
+
+    # 切换版本
+    if test -n "$TARGET_VERSION" -a "$TARGET_VERSION" != "$PREVIOUS_VERSION"
+        echo "🔄 切换 Node 版本: $PREVIOUS_VERSION -> $TARGET_VERSION"
+
+        # Fish中使用bash来运行nvm命令（因为nvm是bash脚本）
+        bash -c "source '{{nvmPath}}' >/dev/null 2>&1; nvm use '$TARGET_VERSION' >/dev/null 2>&1"
+        if test $status -ne 0
+            echo "⚠️ 版本 $TARGET_VERSION 不存在，尝试安装..."
+            bash -c "source '{{nvmPath}}' >/dev/null 2>&1; nvm install '$TARGET_VERSION' >/dev/null 2>&1; nvm use '$TARGET_VERSION' >/dev/null 2>&1"
+        end
+
+        # 执行yarn命令
+        command yarn $argv
+        set exit_code $status
+
+        # 恢复到之前的版本
+        if test -n "$PREVIOUS_VERSION"
+            echo "📦 执行完成，恢复到之前的 Node.js 版本..."
+            echo "↩️ 恢复 Node 版本: $TARGET_VERSION -> $PREVIOUS_VERSION"
+            bash -c "source '{{nvmPath}}' >/dev/null 2>&1; nvm use '$PREVIOUS_VERSION' >/dev/null 2>&1"
+        end
+    else
+        # 直接执行yarn命令
+        command yarn $argv
+        set exit_code $status
+    end
+
+    return $exit_code
+end
+
+function pnpm
+    set WORKDIRS '{{escapedDirsJson}}'
+    set TARGET_VERSION ""
+    set PREVIOUS_VERSION ""
+
+    # 获取当前 Node 版本
+    if command -v node >/dev/null 2>&1
+        set PREVIOUS_VERSION (node -v 2>/dev/null | sed 's/^v//')
+    end
+
+    # 检查是否在工作目录中 (Fish语法，使用纯Shell解析避免Python依赖)
+    if test -n "$WORKDIRS"
+        set WORKDIR_INFO ""
+        set CURRENT_DIR (pwd)
+
+        # 使用Fish的string命令解析JSON
+        set work_dir (echo "$WORKDIRS" | string match -r '"dir":"([^"]*)"' | tail -1)
+        set work_version (echo "$WORKDIRS" | string match -r '"version":"([^"]*)"' | tail -1)
+
+        # 检查当前目录是否匹配工作目录
+        if test "$CURRENT_DIR" = "$work_dir"; or string match -q "$work_dir/*" "$CURRENT_DIR"
+            set WORKDIR_INFO "$work_version|"(basename "$work_dir")
+        end
+
+        if test -n "$WORKDIR_INFO"
+            set TARGET_VERSION (echo $WORKDIR_INFO | cut -d'|' -f1)
+            set WORKDIR_NAME (echo $WORKDIR_INFO | cut -d'|' -f2)
+            echo "📁 检测到工作目录: $WORKDIR_NAME"
+        end
+    end
+
+    # 切换版本
+    if test -n "$TARGET_VERSION" -a "$TARGET_VERSION" != "$PREVIOUS_VERSION"
+        echo "🔄 切换 Node 版本: $PREVIOUS_VERSION -> $TARGET_VERSION"
+
+        # Fish中使用bash来运行nvm命令（因为nvm是bash脚本）
+        bash -c "source '{{nvmPath}}' >/dev/null 2>&1; nvm use '$TARGET_VERSION' >/dev/null 2>&1"
+        if test $status -ne 0
+            echo "⚠️ 版本 $TARGET_VERSION 不存在，尝试安装..."
+            bash -c "source '{{nvmPath}}' >/dev/null 2>&1; nvm install '$TARGET_VERSION' >/dev/null 2>&1; nvm use '$TARGET_VERSION' >/dev/null 2>&1"
+        end
+
+        # 执行pnpm命令
+        command pnpm $argv
+        set exit_code $status
+
+        # 恢复到之前的版本
+        if test -n "$PREVIOUS_VERSION"
+            echo "📦 执行完成，恢复到之前的 Node.js 版本..."
+            echo "↩️ 恢复 Node 版本: $TARGET_VERSION -> $PREVIOUS_VERSION"
+            bash -c "source '{{nvmPath}}' >/dev/null 2>&1; nvm use '$PREVIOUS_VERSION' >/dev/null 2>&1"
+        end
+    else
+        # 直接执行pnpm命令
+        command pnpm $argv
+        set exit_code $status
+    end
+
+    return $exit_code
 end`,
 			fnm: `function npm
     set WORKDIRS '{{escapedDirsJson}}'
@@ -267,6 +511,128 @@ end`,
         set exit_code $status
     end
     
+    return $exit_code
+end
+
+function yarn
+    set WORKDIRS '{{escapedDirsJson}}'
+    set TARGET_VERSION ""
+    set PREVIOUS_VERSION ""
+
+    # 获取当前 Node 版本
+    if command -v node >/dev/null 2>&1
+        set PREVIOUS_VERSION (node -v 2>/dev/null | sed 's/^v//')
+    end
+
+    # 检查是否在工作目录中 (Fish语法，使用纯Shell解析避免Python依赖)
+    if test -n "$WORKDIRS"
+        set WORKDIR_INFO ""
+        set CURRENT_DIR (pwd)
+
+        # 使用Fish的string命令解析JSON
+        set work_dir (echo "$WORKDIRS" | string match -r '"dir":"([^"]*)"' | tail -1)
+        set work_version (echo "$WORKDIRS" | string match -r '"version":"([^"]*)"' | tail -1)
+
+        # 检查当前目录是否匹配工作目录
+        if test "$CURRENT_DIR" = "$work_dir"; or string match -q "$work_dir/*" "$CURRENT_DIR"
+            set WORKDIR_INFO "$work_version|"(basename "$work_dir")
+        end
+
+        if test -n "$WORKDIR_INFO"
+            set TARGET_VERSION (echo $WORKDIR_INFO | cut -d'|' -f1)
+            set WORKDIR_NAME (echo $WORKDIR_INFO | cut -d'|' -f2)
+            echo "📁 检测到工作目录: $WORKDIR_NAME"
+        end
+    end
+
+    # 切换版本
+    if test -n "$TARGET_VERSION" -a "$TARGET_VERSION" != "$PREVIOUS_VERSION"
+        echo "🔄 切换 Node 版本: $PREVIOUS_VERSION -> $TARGET_VERSION"
+
+        # Fish中使用bash来运行nvm命令（因为nvm是bash脚本）
+        bash -c "source '{{nvmPath}}' >/dev/null 2>&1; nvm use '$TARGET_VERSION' >/dev/null 2>&1"
+        if test $status -ne 0
+            echo "⚠️ 版本 $TARGET_VERSION 不存在，尝试安装..."
+            bash -c "source '{{nvmPath}}' >/dev/null 2>&1; nvm install '$TARGET_VERSION' >/dev/null 2>&1; nvm use '$TARGET_VERSION' >/dev/null 2>&1"
+        end
+
+        # 执行yarn命令
+        command yarn $argv
+        set exit_code $status
+
+        # 恢复到之前的版本
+        if test -n "$PREVIOUS_VERSION"
+            echo "📦 执行完成，恢复到之前的 Node.js 版本..."
+            echo "↩️ 恢复 Node 版本: $TARGET_VERSION -> $PREVIOUS_VERSION"
+            bash -c "source '{{nvmPath}}' >/dev/null 2>&1; nvm use '$PREVIOUS_VERSION' >/dev/null 2>&1"
+        end
+    else
+        # 直接执行yarn命令
+        command yarn $argv
+        set exit_code $status
+    end
+
+    return $exit_code
+end
+
+function pnpm
+    set WORKDIRS '{{escapedDirsJson}}'
+    set TARGET_VERSION ""
+    set PREVIOUS_VERSION ""
+
+    # 获取当前 Node 版本
+    if command -v node >/dev/null 2>&1
+        set PREVIOUS_VERSION (node -v 2>/dev/null | sed 's/^v//')
+    end
+
+    # 检查是否在工作目录中 (Fish语法，使用纯Shell解析避免Python依赖)
+    if test -n "$WORKDIRS"
+        set WORKDIR_INFO ""
+        set CURRENT_DIR (pwd)
+
+        # 使用Fish的string命令解析JSON
+        set work_dir (echo "$WORKDIRS" | string match -r '"dir":"([^"]*)"' | tail -1)
+        set work_version (echo "$WORKDIRS" | string match -r '"version":"([^"]*)"' | tail -1)
+
+        # 检查当前目录是否匹配工作目录
+        if test "$CURRENT_DIR" = "$work_dir"; or string match -q "$work_dir/*" "$CURRENT_DIR"
+            set WORKDIR_INFO "$work_version|"(basename "$work_dir")
+        end
+
+        if test -n "$WORKDIR_INFO"
+            set TARGET_VERSION (echo $WORKDIR_INFO | cut -d'|' -f1)
+            set WORKDIR_NAME (echo $WORKDIR_INFO | cut -d'|' -f2)
+            echo "📁 检测到工作目录: $WORKDIR_NAME"
+        end
+    end
+
+    # 切换版本
+    if test -n "$TARGET_VERSION" -a "$TARGET_VERSION" != "$PREVIOUS_VERSION"
+        echo "🔄 切换 Node 版本: $PREVIOUS_VERSION -> $TARGET_VERSION"
+
+        # Fish中使用bash来运行nvm命令（因为nvm是bash脚本）
+        bash -c "source '{{nvmPath}}' >/dev/null 2>&1; nvm use '$TARGET_VERSION' >/dev/null 2>&1"
+        if test $status -ne 0
+            echo "⚠️ 版本 $TARGET_VERSION 不存在，尝试安装..."
+            bash -c "source '{{nvmPath}}' >/dev/null 2>&1; nvm install '$TARGET_VERSION' >/dev/null 2>&1; nvm use '$TARGET_VERSION' >/dev/null 2>&1"
+        end
+
+        # 执行pnpm命令
+        command pnpm $argv
+        set exit_code $status
+
+        # 恢复到之前的版本
+        if test -n "$PREVIOUS_VERSION"
+            echo "📦 执行完成，恢复到之前的 Node.js 版本..."
+            echo "↩️ 恢复 Node 版本: $TARGET_VERSION -> $PREVIOUS_VERSION"
+            bash -c "source '{{nvmPath}}' >/dev/null 2>&1; nvm use '$PREVIOUS_VERSION' >/dev/null 2>&1"
+        end
+    else
+        # 直接执行pnpm命令
+        command pnpm $argv
+        set exit_code $status
+    end
+
     return $exit_code
 end`,
 		};

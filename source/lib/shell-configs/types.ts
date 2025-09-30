@@ -13,6 +13,8 @@ export interface TemplateData {
 	manager: string;
 	nvmPath?: string;
 	escapedDirsJson: string;
+	packageManagersJson?: string; // 包管理器映射JSON字符串
+	enablePackageManagerSwitch?: boolean; // 是否启用包管理器切换
 }
 
 /**

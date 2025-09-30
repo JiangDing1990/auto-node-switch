@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 import os from 'node:os';
+import type {PackageManagerType} from './package-manager-detector.js';
 
 const HOME = os.homedir();
 
@@ -11,6 +12,8 @@ const HOME = os.homedir();
 export interface WorkdirConfig {
 	dir: string;
 	version: string;
+	packageManager?: PackageManagerType; // 包管理器类型（可选，用于向后兼容）
+	autoDetectPM?: boolean; // 是否自动检测包管理器（默认true）
 }
 
 /**
