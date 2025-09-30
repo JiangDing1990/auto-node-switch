@@ -12,6 +12,8 @@ import {PowerShellConfig} from './powershell-config.js';
  * Shell配置注册表
  */
 export class ShellConfigRegistry {
+	private static readonly configs = new Map<string, ShellConfig>();
+
 	static {
 		// 注册所有支持的Shell配置
 		this.register(new BashShellConfig());
@@ -29,16 +31,14 @@ export class ShellConfigRegistry {
 	/**
 	 * 根据配置文件路径获取Shell配置
 	 */
-	static getConfigForFile(
-		filePath: string,
-	): ShellConfig | undefined | null {
+	static getConfigForFile(filePath: string): ShellConfig | undefined {
 		for (const config of this.configs.values()) {
 			if (config.isConfigFile(filePath)) {
 				return config;
 			}
 		}
 
-		return null;
+		return undefined;
 	}
 
 	/**
@@ -51,11 +51,9 @@ export class ShellConfigRegistry {
 	/**
 	 * 根据名称获取Shell配置
 	 */
-	static getConfig(name: string): ShellConfig | undefined | null {
-		return this.configs.get(name) ?? null;
+	static getConfig(name: string): ShellConfig | undefined {
+		return this.configs.get(name);
 	}
-
-	private static readonly configs = new Map<string, ShellConfig>();
 }
 
 // 导出类型和主要类
