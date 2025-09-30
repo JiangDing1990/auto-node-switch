@@ -595,35 +595,144 @@ export function detectAvailableManagers(): Array<{
 	available: boolean;
 }> {
 	const currentOS = detectOS();
-	let managers: Array<{name: string; command: string}> = [];
+	const results: Array<{name: string; available: boolean}> = [];
 
 	if (currentOS === 'windows') {
-		managers = [
-			{name: 'nvm-windows', command: 'nvm version'},
-			{name: 'fnm', command: 'fnm --version'},
-			{name: 'nvs', command: 'nvs --version'},
-		];
+		// Windows 版本管理器检测
+		results.push({
+			name: 'nvm-windows',
+			available: isNvmWindowsAvailable(),
+		});
+		results.push({
+			name: 'fnm',
+			available: isCommandAvailable('fnm --version'),
+		});
+		results.push({
+			name: 'nvs',
+			available: isCommandAvailable('nvs --version'),
+		});
 	} else {
-		managers = [
-			{name: 'nvm', command: 'nvm --version'},
-			{name: 'n', command: 'n --version'},
-			{name: 'fnm', command: 'fnm --version'},
-		];
+		// Unix/Linux/macOS 版本管理器检测
+		results.push({
+			name: 'nvm',
+			available: isNvmAvailable(),
+		});
+		results.push({
+			name: 'n',
+			available: isCommandAvailable('n --version'),
+		});
+		results.push({
+			name: 'fnm',
+			available: isCommandAvailable('fnm --version'),
+		});
 	}
 
-	return managers.map(manager => ({
-		name: manager.name,
-		available: (() => {
-			try {
-				execSync(manager.command, {
+	return results;
+}
+
+/**
+ * 检测 nvm 是否可用 (Unix/Linux/macOS)
+ * nvm 是 shell 函数，无法通过直接执行检测，需要检查安装目录和环境变量
+ */
+function isNvmAvailable(): boolean {
+	try {
+		// 方法1: 检查 NVM_DIR 环境变量
+		const nvmDir = process.env['NVM_DIR'];
+		if (nvmDir) {
+			const nvmShPath = path.join(nvmDir, 'nvm.sh');
+			if (fs.existsSync(nvmShPath)) {
+				return true;
+			}
+		}
+
+		// 方法2: 检查默认安装路径
+		const homeDir = os.homedir();
+		const defaultNvmDir = path.join(homeDir, '.nvm');
+		if (fs.existsSync(path.join(defaultNvmDir, 'nvm.sh'))) {
+			return true;
+		}
+
+		// 方法3: 通过 bash -c 检测 nvm 函数是否存在
+		try {
+			execSync('bash -c "type nvm"', {
+				encoding: 'utf8',
+				timeout: 2000,
+				stdio: 'ignore',
+			});
+			return true;
+		} catch {
+			// 如果 bash -c 失败，继续下一个方法
+		}
+
+		// 方法4: 检查是否有 node 被 nvm 管理
+		try {
+			const nodeVersion = execSync('node --version', {
+				encoding: 'utf8',
+				timeout: 2000,
+			}).trim();
+
+			if (nodeVersion) {
+				// 检查 node 路径是否包含 .nvm
+				const nodePath = execSync('which node', {
 					encoding: 'utf8',
 					timeout: 2000,
-					stdio: 'ignore',
-				});
-				return true;
-			} catch {
-				return false;
+				}).trim();
+
+				return nodePath.includes('.nvm');
 			}
-		})(),
-	}));
+		} catch {
+			// Ignore errors
+		}
+
+		return false;
+	} catch {
+		return false;
+	}
+}
+
+/**
+ * 检测 nvm-windows 是否可用
+ */
+function isNvmWindowsAvailable(): boolean {
+	try {
+		// 检查 nvm-windows 的安装路径
+		const nvmHome = process.env['NVM_HOME'];
+		if (nvmHome && fs.existsSync(path.join(nvmHome, 'nvm.exe'))) {
+			return true;
+		}
+
+		// 检查常见安装路径
+		const commonPaths = [
+			'C:\\Program Files\\nodejs\\nvm.exe',
+			'C:\\Program Files (x86)\\nodejs\\nvm.exe',
+			'C:\\nvm\\nvm.exe',
+		];
+
+		for (const nvmPath of commonPaths) {
+			if (fs.existsSync(nvmPath)) {
+				return true;
+			}
+		}
+
+		// 尝试执行命令检测
+		return isCommandAvailable('nvm version');
+	} catch {
+		return false;
+	}
+}
+
+/**
+ * 检测命令是否可用（通用方法）
+ */
+function isCommandAvailable(command: string): boolean {
+	try {
+		execSync(command, {
+			encoding: 'utf8',
+			timeout: 2000,
+			stdio: 'ignore',
+		});
+		return true;
+	} catch {
+		return false;
+	}
 }

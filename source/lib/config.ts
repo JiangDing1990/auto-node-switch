@@ -125,7 +125,13 @@ export class ConfigCache {
 
 			return {...this.data}; // 返回副本防止意外修改
 		} catch (error) {
-			console.warn(`配置文件读取失败: ${(error as Error).message}`);
+			// 在测试环境中静默处理
+			if (
+				!process.env['NODE_ENV']?.includes('test') &&
+				!process.env['XDG_CONFIG_HOME']?.includes('test')
+			) {
+				console.warn(`配置文件读取失败: ${(error as Error).message}`);
+			}
 			return this.getDefaultConfig();
 		}
 	}
@@ -156,7 +162,13 @@ export class ConfigCache {
 			this.data = validatedConfig;
 			this.lastModified = Date.now();
 
-			console.log('✅ 配置已保存');
+			// 在测试环境中静默处理
+			if (
+				!process.env['NODE_ENV']?.includes('test') &&
+				!process.env['XDG_CONFIG_HOME']?.includes('test')
+			) {
+				console.log('✅ 配置已保存');
+			}
 		} catch (error) {
 			throw new Error(`保存配置失败: ${(error as Error).message}`);
 		}
@@ -240,10 +252,22 @@ export class ConfigCache {
 				const backupPath = path.join(ConfigPaths.backupDir, backupName);
 				fs.copyFileSync(legacyFile, backupPath);
 
-				console.log(`✅ 配置已迁移到新位置: ${modernFile}`);
-				console.log(`ℹ️ 旧配置已备份到: ${backupPath}`);
+				// 在测试环境中静默处理
+				if (
+					!process.env['NODE_ENV']?.includes('test') &&
+					!process.env['XDG_CONFIG_HOME']?.includes('test')
+				) {
+					console.log(`✅ 配置已迁移到新位置: ${modernFile}`);
+					console.log(`ℹ️ 旧配置已备份到: ${backupPath}`);
+				}
 			} catch (error) {
-				console.warn(`配置迁移失败: ${(error as Error).message}`);
+				// 在测试环境中静默处理
+				if (
+					!process.env['NODE_ENV']?.includes('test') &&
+					!process.env['XDG_CONFIG_HOME']?.includes('test')
+				) {
+					console.warn(`配置迁移失败: ${(error as Error).message}`);
+				}
 			}
 		}
 	}
@@ -270,7 +294,13 @@ export class ConfigCache {
 			// 只保留最近的 5 个备份
 			this.cleanupOldBackups();
 		} catch (error) {
-			console.warn(`创建备份失败: ${(error as Error).message}`);
+			// 在测试环境中静默处理
+			if (
+				!process.env['NODE_ENV']?.includes('test') &&
+				!process.env['XDG_CONFIG_HOME']?.includes('test')
+			) {
+				console.warn(`创建备份失败: ${(error as Error).message}`);
+			}
 		}
 	}
 

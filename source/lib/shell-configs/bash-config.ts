@@ -100,22 +100,35 @@ npm() {
   if [ -n "$WORKDIRS" ]; then
     local CURRENT_DIR="$(pwd)"
     local WORKDIR_INFO=""
-    
-    # 使用更简单可靠的JSON解析方法
-    local CURRENT_DIR="$(pwd)"
-    # 提取目录和版本，使用更安全的方法
-    local work_dir=$(echo "$WORKDIRS" | sed 's/.*"dir":"\\([^"]*\\)".*/\\1/')
-    local work_version=$(echo "$WORKDIRS" | sed 's/.*"version":"\\([^"]*\\)".*/\\1/')
-    
-    # 检查当前目录是否匹配工作目录
-    if [ "$CURRENT_DIR" = "$work_dir" ] || echo "$CURRENT_DIR" | grep -q "^$work_dir/"; then
-      WORKDIR_INFO="$work_version|$(basename "$work_dir")"
-    fi
-    
-    if [ -n "$WORKDIR_INFO" ]; then
-      TARGET_VERSION="\${WORKDIR_INFO%|*}"
-      local WORKDIR_NAME="\${WORKDIR_INFO#*|}"
+
+    # 遍历JSON数组中的每个工作目录配置
+    # 移除JSON数组的方括号，按逗号分隔每个对象
+    local workdir_entries="$(echo "$WORKDIRS" | sed 's/^\\[//;s/\\]$//' | sed 's/},{/}\\n{/g')"
+
+    # 使用while循环遍历每个工作目录配置
+    echo "$workdir_entries" | while IFS= read -r entry; do
+      if [ -n "$entry" ]; then
+        # 提取当前条目的目录和版本
+        local work_dir=$(echo "$entry" | sed 's/.*"dir":"\\([^"]*\\)".*/\\1/')
+        local work_version=$(echo "$entry" | sed 's/.*"version":"\\([^"]*\\)".*/\\1/')
+
+        # 检查当前目录是否匹配工作目录
+        if [ "$CURRENT_DIR" = "$work_dir" ] || echo "$CURRENT_DIR" | grep -q "^$work_dir/"; then
+          # 找到匹配的工作目录，设置环境变量并退出循环
+          export ANS_TARGET_VERSION="$work_version"
+          export ANS_WORKDIR_NAME="$(basename "$work_dir")"
+          break
+        fi
+      fi
+    done
+
+    # 检查是否找到了匹配的工作目录
+    if [ -n "$ANS_TARGET_VERSION" ]; then
+      TARGET_VERSION="$ANS_TARGET_VERSION"
+      local WORKDIR_NAME="$ANS_WORKDIR_NAME"
       echo "📁 检测到工作目录: $WORKDIR_NAME"
+      # 清理临时环境变量
+      unset ANS_TARGET_VERSION ANS_WORKDIR_NAME
     fi
   fi
 
@@ -160,21 +173,34 @@ yarn() {
     local CURRENT_DIR="$(pwd)"
     local WORKDIR_INFO=""
 
-    # 使用更简单可靠的JSON解析方法
-    local CURRENT_DIR="$(pwd)"
-    # 提取目录和版本，使用更安全的方法
-    local work_dir=$(echo "$WORKDIRS" | sed 's/.*"dir":"\\([^"]*\\)".*/\\1/')
-    local work_version=$(echo "$WORKDIRS" | sed 's/.*"version":"\\([^"]*\\)".*/\\1/')
+    # 遍历JSON数组中的每个工作目录配置
+    # 移除JSON数组的方括号，按逗号分隔每个对象
+    local workdir_entries="$(echo "$WORKDIRS" | sed 's/^\\[//;s/\\]$//' | sed 's/},{/}\\n{/g')"
 
-    # 检查当前目录是否匹配工作目录
-    if [ "$CURRENT_DIR" = "$work_dir" ] || echo "$CURRENT_DIR" | grep -q "^$work_dir/"; then
-      WORKDIR_INFO="$work_version|$(basename "$work_dir")"
-    fi
+    # 使用while循环遍历每个工作目录配置
+    echo "$workdir_entries" | while IFS= read -r entry; do
+      if [ -n "$entry" ]; then
+        # 提取当前条目的目录和版本
+        local work_dir=$(echo "$entry" | sed 's/.*"dir":"\\([^"]*\\)".*/\\1/')
+        local work_version=$(echo "$entry" | sed 's/.*"version":"\\([^"]*\\)".*/\\1/')
 
-    if [ -n "$WORKDIR_INFO" ]; then
-      TARGET_VERSION="\${WORKDIR_INFO%|*}"
-      local WORKDIR_NAME="\${WORKDIR_INFO#*|}"
+        # 检查当前目录是否匹配工作目录
+        if [ "$CURRENT_DIR" = "$work_dir" ] || echo "$CURRENT_DIR" | grep -q "^$work_dir/"; then
+          # 找到匹配的工作目录，设置环境变量并退出循环
+          export ANS_TARGET_VERSION="$work_version"
+          export ANS_WORKDIR_NAME="$(basename "$work_dir")"
+          break
+        fi
+      fi
+    done
+
+    # 检查是否找到了匹配的工作目录
+    if [ -n "$ANS_TARGET_VERSION" ]; then
+      TARGET_VERSION="$ANS_TARGET_VERSION"
+      local WORKDIR_NAME="$ANS_WORKDIR_NAME"
       echo "📁 检测到工作目录: $WORKDIR_NAME"
+      # 清理临时环境变量
+      unset ANS_TARGET_VERSION ANS_WORKDIR_NAME
     fi
   fi
 
@@ -219,21 +245,34 @@ pnpm() {
     local CURRENT_DIR="$(pwd)"
     local WORKDIR_INFO=""
 
-    # 使用更简单可靠的JSON解析方法
-    local CURRENT_DIR="$(pwd)"
-    # 提取目录和版本，使用更安全的方法
-    local work_dir=$(echo "$WORKDIRS" | sed 's/.*"dir":"\\([^"]*\\)".*/\\1/')
-    local work_version=$(echo "$WORKDIRS" | sed 's/.*"version":"\\([^"]*\\)".*/\\1/')
+    # 遍历JSON数组中的每个工作目录配置
+    # 移除JSON数组的方括号，按逗号分隔每个对象
+    local workdir_entries="$(echo "$WORKDIRS" | sed 's/^\\[//;s/\\]$//' | sed 's/},{/}\\n{/g')"
 
-    # 检查当前目录是否匹配工作目录
-    if [ "$CURRENT_DIR" = "$work_dir" ] || echo "$CURRENT_DIR" | grep -q "^$work_dir/"; then
-      WORKDIR_INFO="$work_version|$(basename "$work_dir")"
-    fi
+    # 使用while循环遍历每个工作目录配置
+    echo "$workdir_entries" | while IFS= read -r entry; do
+      if [ -n "$entry" ]; then
+        # 提取当前条目的目录和版本
+        local work_dir=$(echo "$entry" | sed 's/.*"dir":"\\([^"]*\\)".*/\\1/')
+        local work_version=$(echo "$entry" | sed 's/.*"version":"\\([^"]*\\)".*/\\1/')
 
-    if [ -n "$WORKDIR_INFO" ]; then
-      TARGET_VERSION="\${WORKDIR_INFO%|*}"
-      local WORKDIR_NAME="\${WORKDIR_INFO#*|}"
+        # 检查当前目录是否匹配工作目录
+        if [ "$CURRENT_DIR" = "$work_dir" ] || echo "$CURRENT_DIR" | grep -q "^$work_dir/"; then
+          # 找到匹配的工作目录，设置环境变量并退出循环
+          export ANS_TARGET_VERSION="$work_version"
+          export ANS_WORKDIR_NAME="$(basename "$work_dir")"
+          break
+        fi
+      fi
+    done
+
+    # 检查是否找到了匹配的工作目录
+    if [ -n "$ANS_TARGET_VERSION" ]; then
+      TARGET_VERSION="$ANS_TARGET_VERSION"
+      local WORKDIR_NAME="$ANS_WORKDIR_NAME"
       echo "📁 检测到工作目录: $WORKDIR_NAME"
+      # 清理临时环境变量
+      unset ANS_TARGET_VERSION ANS_WORKDIR_NAME
     fi
   fi
 
@@ -276,22 +315,35 @@ npm() {
   if [ -n "$WORKDIRS" ]; then
     local CURRENT_DIR="$(pwd)"
     local WORKDIR_INFO=""
-    
-    # 使用更简单可靠的JSON解析方法
-    local CURRENT_DIR="$(pwd)"
-    # 提取目录和版本，使用更安全的方法
-    local work_dir=$(echo "$WORKDIRS" | sed 's/.*"dir":"\\([^"]*\\)".*/\\1/')
-    local work_version=$(echo "$WORKDIRS" | sed 's/.*"version":"\\([^"]*\\)".*/\\1/')
-    
-    # 检查当前目录是否匹配工作目录
-    if [ "$CURRENT_DIR" = "$work_dir" ] || echo "$CURRENT_DIR" | grep -q "^$work_dir/"; then
-      WORKDIR_INFO="$work_version|$(basename "$work_dir")"
-    fi
-    
-    if [ -n "$WORKDIR_INFO" ]; then
-      TARGET_VERSION="\${WORKDIR_INFO%|*}"
-      local WORKDIR_NAME="\${WORKDIR_INFO#*|}"
+
+    # 遍历JSON数组中的每个工作目录配置
+    # 移除JSON数组的方括号，按逗号分隔每个对象
+    local workdir_entries="$(echo "$WORKDIRS" | sed 's/^\\[//;s/\\]$//' | sed 's/},{/}\\n{/g')"
+
+    # 使用while循环遍历每个工作目录配置
+    echo "$workdir_entries" | while IFS= read -r entry; do
+      if [ -n "$entry" ]; then
+        # 提取当前条目的目录和版本
+        local work_dir=$(echo "$entry" | sed 's/.*"dir":"\\([^"]*\\)".*/\\1/')
+        local work_version=$(echo "$entry" | sed 's/.*"version":"\\([^"]*\\)".*/\\1/')
+
+        # 检查当前目录是否匹配工作目录
+        if [ "$CURRENT_DIR" = "$work_dir" ] || echo "$CURRENT_DIR" | grep -q "^$work_dir/"; then
+          # 找到匹配的工作目录，设置环境变量并退出循环
+          export ANS_TARGET_VERSION="$work_version"
+          export ANS_WORKDIR_NAME="$(basename "$work_dir")"
+          break
+        fi
+      fi
+    done
+
+    # 检查是否找到了匹配的工作目录
+    if [ -n "$ANS_TARGET_VERSION" ]; then
+      TARGET_VERSION="$ANS_TARGET_VERSION"
+      local WORKDIR_NAME="$ANS_WORKDIR_NAME"
       echo "📁 检测到工作目录: $WORKDIR_NAME"
+      # 清理临时环境变量
+      unset ANS_TARGET_VERSION ANS_WORKDIR_NAME
     fi
   fi
 
@@ -332,22 +384,35 @@ npm() {
   if [ -n "$WORKDIRS" ]; then
     local CURRENT_DIR="$(pwd)"
     local WORKDIR_INFO=""
-    
-    # 使用更简单可靠的JSON解析方法
-    local CURRENT_DIR="$(pwd)"
-    # 提取目录和版本，使用更安全的方法
-    local work_dir=$(echo "$WORKDIRS" | sed 's/.*"dir":"\\([^"]*\\)".*/\\1/')
-    local work_version=$(echo "$WORKDIRS" | sed 's/.*"version":"\\([^"]*\\)".*/\\1/')
-    
-    # 检查当前目录是否匹配工作目录
-    if [ "$CURRENT_DIR" = "$work_dir" ] || echo "$CURRENT_DIR" | grep -q "^$work_dir/"; then
-      WORKDIR_INFO="$work_version|$(basename "$work_dir")"
-    fi
-    
-    if [ -n "$WORKDIR_INFO" ]; then
-      TARGET_VERSION="\${WORKDIR_INFO%|*}"
-      local WORKDIR_NAME="\${WORKDIR_INFO#*|}"
+
+    # 遍历JSON数组中的每个工作目录配置
+    # 移除JSON数组的方括号，按逗号分隔每个对象
+    local workdir_entries="$(echo "$WORKDIRS" | sed 's/^\\[//;s/\\]$//' | sed 's/},{/}\\n{/g')"
+
+    # 使用while循环遍历每个工作目录配置
+    echo "$workdir_entries" | while IFS= read -r entry; do
+      if [ -n "$entry" ]; then
+        # 提取当前条目的目录和版本
+        local work_dir=$(echo "$entry" | sed 's/.*"dir":"\\([^"]*\\)".*/\\1/')
+        local work_version=$(echo "$entry" | sed 's/.*"version":"\\([^"]*\\)".*/\\1/')
+
+        # 检查当前目录是否匹配工作目录
+        if [ "$CURRENT_DIR" = "$work_dir" ] || echo "$CURRENT_DIR" | grep -q "^$work_dir/"; then
+          # 找到匹配的工作目录，设置环境变量并退出循环
+          export ANS_TARGET_VERSION="$work_version"
+          export ANS_WORKDIR_NAME="$(basename "$work_dir")"
+          break
+        fi
+      fi
+    done
+
+    # 检查是否找到了匹配的工作目录
+    if [ -n "$ANS_TARGET_VERSION" ]; then
+      TARGET_VERSION="$ANS_TARGET_VERSION"
+      local WORKDIR_NAME="$ANS_WORKDIR_NAME"
       echo "📁 检测到工作目录: $WORKDIR_NAME"
+      # 清理临时环境变量
+      unset ANS_TARGET_VERSION ANS_WORKDIR_NAME
     fi
   fi
 

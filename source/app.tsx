@@ -200,7 +200,7 @@ function InitialSetup({
 	config: AppConfig;
 	shellInfo: any;
 	availableManagers: any[];
-	onComplete: (config: AppConfig) => void;
+	onComplete: (_config: AppConfig) => void;
 	onBack?: () => void;
 }) {
 	const [step, setStep] = useState(0);
@@ -486,9 +486,9 @@ function ConfigManagement({
 	onError,
 }: {
 	config: AppConfig;
-	onConfigChange: (config: AppConfig) => void;
+	onConfigChange: (_config: AppConfig) => void;
 	onBack: () => void;
-	onError: (error: Error) => void;
+	onError: (_error: Error) => void;
 }) {
 	const [mode, setMode] = useState<string>('menu');
 
@@ -739,8 +739,8 @@ function AddProject({
 	onBack,
 }: {
 	config: AppConfig;
-	onConfigChange: (config: AppConfig) => void;
-	onError: (error: Error) => void;
+	onConfigChange: (_config: AppConfig) => void;
+	onError: (_error: Error) => void;
 	onBack?: () => void;
 }) {
 	const [step, setStep] = useState<'dir' | 'version' | 'complete'>('dir');
@@ -866,7 +866,6 @@ function AddProject({
 			return () => clearTimeout(timer);
 		}
 
-		// eslint-disable-next-line @typescript-eslint/no-empty-function
 		return () => {}; // 默认返回空的清理函数
 	}, [step, onBack]);
 
@@ -988,7 +987,7 @@ function DeleteProject({
 	onBack,
 }: {
 	config: AppConfig;
-	onConfigChange: (config: AppConfig) => void;
+	onConfigChange: (_config: AppConfig) => void;
 	onBack: () => void;
 }) {
 	const hasNoConfig = !config.workdirs || config.workdirs.length === 0;
@@ -1011,7 +1010,6 @@ function DeleteProject({
 			return () => clearTimeout(timer);
 		}
 
-		// eslint-disable-next-line @typescript-eslint/no-empty-function
 		return () => {};
 	}, [hasNoConfig, deletedProject, onBack]);
 
@@ -1151,7 +1149,7 @@ function HookOperationStatus({
 	type: 'regenerate' | 'clean';
 	config: AppConfig;
 	onComplete: () => void;
-	onError: (error: Error) => void;
+	onError: (_error: Error) => void;
 }) {
 	const [isProcessing, setIsProcessing] = useState(true);
 	const [result, setResult] = useState<{success: boolean; message?: string}>({
@@ -1256,7 +1254,6 @@ function HookOperationStatus({
 			return () => clearTimeout(timer);
 		}
 
-		// eslint-disable-next-line @typescript-eslint/no-empty-function
 		return () => {};
 	}, [isProcessing, result.success, onComplete]);
 

@@ -18,7 +18,7 @@ export class TemplateEngine implements TemplateRenderer {
 	render(template: string, data: TemplateData): string {
 		return template.replace(/{{(\w+)}}/g, (match, key) => {
 			const value = data[key as keyof TemplateData];
-			// eslint-disable-next-line no-negated-condition
+
 			return value !== undefined ? String(value) : match;
 		});
 	}

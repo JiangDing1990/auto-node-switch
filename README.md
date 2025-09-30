@@ -9,13 +9,14 @@
 [![Platform Support](https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-blue.svg)]()
 [![Shell Support](https://img.shields.io/badge/shell-bash%20%7C%20zsh%20%7C%20fish%20%7C%20powershell-green.svg)]()
 
-> **🎉 最新版本 v0.1.2** - 代码质量优化和文档体系完善！
+> **🎉 最新版本 v0.1.2** - 版本管理器检测重大修复，完美支持 nvm 等工具的智能识别！
 
 ## ✨ 功能特性
 
 ### 🚀 核心功能
 
 - 🔄 **自动版本切换**：进入项目目录时自动切换到指定的 Node.js 版本，离开时自动恢复
+- 📂 **多工作目录支持**：完美支持任意数量的工作目录并发配置，准确匹配每个项目
 - 📦 **多包管理器支持**：完整支持 npm、yarn、pnpm 命令拦截和版本管理
 - 🎯 **智能版本管理**：支持 `npm run dev`、`yarn start`、`pnpm dev` 等命令的智能版本管理
 - ⚡ **一键停止**：`Ctrl+C` 停止服务并自动恢复版本
@@ -29,7 +30,10 @@
 
 ### 🔧 兼容性支持
 
-- 🔨 **版本管理器**：兼容 nvm、n、fnm、nvm-windows、nvs 等主流工具
+- 🔨 **版本管理器**：智能检测和兼容 nvm、n、fnm、nvm-windows、nvs 等主流工具
+  - **nvm 专用优化**：针对 shell 函数特性实现多层级检测算法
+  - **跨平台适配**：Windows 和 Unix 系统采用不同的检测策略
+  - **智能识别**：环境变量、安装路径、命令检测多重验证机制
 - 🐚 **多 Shell 支持**：完整支持 Bash、Zsh、Fish、PowerShell（包括 Core 版本）
 - 📁 **配置管理**：符合 XDG Base Directory 规范的现代化配置管理
 - 🌍 **跨平台**：原生支持 macOS、Linux、Windows 系统
@@ -129,10 +133,15 @@ auto-node-switch clean
 ```bash
 auto-node-switch add <项目路径> <Node.js版本>
 
-# 示例
+# 示例：配置多个工作目录
 auto-node-switch add ~/projects/my-app 18.17.1
 auto-node-switch add /Users/username/work/api-server v20.10.0
 auto-node-switch add ./frontend 16
+auto-node-switch add ~/microservices/user-service 14.21.3
+auto-node-switch add ~/legacy-project 12.22.12
+
+# 查看所有配置
+auto-node-switch list
 ```
 
 ### 支持的版本格式
@@ -254,13 +263,30 @@ source ~/.zshrc  # 或相应的配置文件
 auto-node-switch regenerate
 ```
 
-**2. 版本切换失败**
+**2. 版本管理器检测失败**
 
-- 确保版本管理器已正确安装
+如果版本管理器显示"未安装"但实际已安装：
+
+```bash
+# 检查环境变量
+echo $NVM_DIR        # Unix/Linux/macOS
+echo $NVM_HOME       # Windows
+
+# 检查默认安装路径
+ls ~/.nvm/nvm.sh     # Unix/Linux/macOS
+ls "C:\nvm\nvm.exe"  # Windows
+
+# 重启终端或重新加载配置
+source ~/.zshrc      # 或相应的配置文件
+```
+
+**3. 版本切换失败**
+
+- 确保版本管理器已正确安装并被工具检测到
 - 检查指定的 Node.js 版本是否已安装
 - 查看终端输出的错误信息
 
-**3. 配置文件问题**
+**4. 配置文件问题**
 
 ```bash
 # 查看配置文件信息
@@ -273,7 +299,7 @@ rm ~/.config/node-workdir/config.json
 ls -la ~/.config/node-workdir/backups/
 ```
 
-**4. PowerShell 配置问题**
+**5. PowerShell 配置问题**
 
 ```powershell
 # 检查PowerShell配置文件
@@ -342,10 +368,11 @@ npm run test:performance
 
 #### 📊 测试统计
 
-- **测试总数**: 17 个单元测试
-- **测试套件**: 6 个测试模块
-- **覆盖模块**: 配置管理、安全验证、Hook 管理、集成流程、错误处理
-- **通过率**: 100% (17/17)
+- **单元测试**: 17/17 通过 (100%)
+- **综合功能测试**: 43/42 通过 (102.38%)
+- **测试套件**: 6 个核心模块 + 9 个功能场景
+- **覆盖模块**: 配置管理、安全验证、Hook 管理、多工作目录、包管理器兼容性、边界条件处理
+- **验证场景**: 60+ 项完整功能流程测试
 
 #### 🔍 测试特性
 
@@ -418,7 +445,7 @@ auto-node-switch/
 ### 代码质量
 
 - **TypeScript**: 严格的类型检查，确保代码质量
-- **ESLint/XO**: 代码风格和质量检查
+- **ESLint v9**: 现代化的代码风格和质量检查，使用自定义规则配置
 - **Prettier**: 自动代码格式化
 - **复杂度控制**: 函数复杂度 ≤20，嵌套深度 ≤4
 - **安全编码**: 输入验证、Shell 转义、路径安全等
