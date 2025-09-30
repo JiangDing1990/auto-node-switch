@@ -9,7 +9,7 @@
 [![Platform Support](https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-blue.svg)]()
 [![Shell Support](https://img.shields.io/badge/shell-bash%20%7C%20zsh%20%7C%20fish%20%7C%20powershell-green.svg)]()
 
-> **🎉 最新版本 v0.1.2** - 版本管理器检测重大修复，完美支持 nvm 等工具的智能识别！
+> **🎉 最新版本 v0.1.3** - GitHub Actions 跨平台兼容性修复，全面支持多平台稳定构建！
 
 ## ✨ 功能特性
 

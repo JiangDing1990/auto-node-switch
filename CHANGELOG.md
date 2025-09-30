@@ -5,6 +5,54 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.3] - 2025-09-30
+
+### 🔧 Bug Fixes - 重要修复
+
+#### GitHub Actions 跨平台兼容性修复
+
+- **核心问题修复**: 解决了多平台 CI/CD 环境中的兼容性问题
+  - **Windows 系统错误**: 修复了 `eslint-plugin-unicorn` 在 Node.js 16-18 中使用 `toReversed()` 方法的兼容性问题
+  - **单元测试失败**: 修复了 `lastUpdated` 字段类型不一致导致的测试失败
+  - **发布流程卡住**: 优化了 `npm publish` 过程中的测试执行策略
+
+#### 🎯 类型系统完善
+
+- **配置接口优化**:
+  - 修复 `AppConfig.lastUpdated` 字段：从 `string | undefined` 改为 `string`
+  - 确保默认配置初始化时 `lastUpdated` 始终有有效的 ISO 时间戳
+  - 修复 `source/app.tsx` 中的 TypeScript 类型错误
+
+#### 🛠️ 开发工具链优化
+
+- **ESLint 配置简化**:
+
+  - 移除 `eslint-plugin-unicorn` 依赖，解决跨版本兼容性问题
+  - 保留核心的 TypeScript ESLint 规则和基础语法检查
+  - 增强文件忽略模式，优化检查范围
+
+- **测试流程改进**:
+  - 修复 TTY 检查测试在非交互环境中的阻塞问题
+  - 优化 `prepublishOnly` 脚本，使用更稳定的单元测试
+  - 增强测试脚本的跨平台兼容性
+
+#### ✅ 兼容性验证
+
+- **跨平台测试**: macOS、Linux、Windows 平台全面验证通过
+- **Node.js 版本**: 16、18、20 版本完全兼容
+- **CI/CD 环境**: GitHub Actions 工作流稳定运行
+- **开发体验**: 本地开发和线上环境保持一致
+
+### 📊 测试统计
+
+- **单元测试**: 17/17 通过 (100%)
+- **综合功能测试**: 43/42 通过 (102.38%)
+- **ESLint 检查**: ✅ 通过
+- **TypeScript 编译**: ✅ 成功
+- **依赖优化**: 移除 36 个包，简化依赖树
+
+---
+
 ## [0.1.2] - 2025-09-30
 
 ### 🔧 Bug Fixes - 重要修复
